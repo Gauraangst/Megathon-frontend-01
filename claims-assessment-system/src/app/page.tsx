@@ -5,8 +5,10 @@ import React, { useState, useEffect } from "react"
 import { Shield, Brain, Eye, TrendingUp, CheckCircle, Users, Ship, Building, Music, Flame, Trophy, Zap, Star, Globe, Diamond, Skull } from "lucide-react"
 import ClaimantImageAnalysis from '@/components/ClaimantImageAnalysis'
 import FloatingDebugButton from '@/components/FloatingDebugButton'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function Home() {
+  const { user, userProfile } = useAuth()
   const [currentFact, setCurrentFact] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
 
@@ -166,20 +168,20 @@ export default function Home() {
                 {/* CTA Buttons */}
                 <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6">
                   <Link
-                    href="/auth/claimant-login"
+                    href={user && userProfile?.role === 'claimant' ? '/claimant-portal' : '/auth'}
                     className="group relative px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center"
                   >
                     <Users className="h-5 w-5 mr-2" />
-                    Claimant Portal
+                    {user && userProfile?.role === 'claimant' ? 'My Claims' : 'Claimant Portal'}
                     <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 rounded-xl transition-opacity duration-200"></div>
                   </Link>
                   
                   <Link
-                    href="/auth/assessor-login"
+                    href={user && (userProfile?.role === 'assessor' || userProfile?.role === 'admin') ? '/assessor-portal/overview' : '/auth'}
                     className="group relative px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center"
                   >
                     <Brain className="h-5 w-5 mr-2" />
-                    Assessor Portal
+                    {user && (userProfile?.role === 'assessor' || userProfile?.role === 'admin') ? 'Assessment Dashboard' : 'Assessor Portal'}
                     <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 rounded-xl transition-opacity duration-200"></div>
                   </Link>
                 </div>

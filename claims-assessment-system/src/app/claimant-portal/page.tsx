@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import ProtectedRoute from '@/components/ProtectedRoute'
+import { useAuth } from '@/contexts/AuthContext'
 import { 
   Shield, 
   Plus, 
@@ -67,7 +69,8 @@ const transformClaimForDisplay = (claim: ClaimData) => {
   }
 }
 
-export default function ClaimantPortalPage() {
+function ClaimantPortalPage() {
+  const { userProfile, signOut } = useAuth()
   const [activeTab, setActiveTab] = useState<'active' | 'resolved'>('active')
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState('date-desc')
@@ -310,9 +313,32 @@ export default function ClaimantPortalPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Vehicle Insurance Claims</h1>
-          <p className="mt-2 text-gray-600">Track and manage your personal and commercial vehicle claims</p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Vehicle Insurance Claims</h1>
+            <p className="mt-2 text-gray-600">Track and manage your personal and commercial vehicle claims</p>
+          </div>
+          
+          {/* User Profile Section */}
+          <div className="flex items-center space-x-4">
+            <div className="text-right">
+              <p className="text-sm font-medium text-gray-900">
+                {userProfile?.full_name || 'User'}
+              </p>
+              <p className="text-xs text-gray-500">{userProfile?.email}</p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="bg-blue-100 rounded-full p-2">
+                <User className="h-5 w-5 text-blue-600" />
+              </div>
+              <button
+                onClick={signOut}
+                className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1 rounded-md hover:bg-gray-100"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -686,5 +712,13 @@ export default function ClaimantPortalPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function ClaimantPortalPageWrapper() {
+  return (
+    <ProtectedRoute requireRole="claimant">
+      <ClaimantPortalPage />
+    </ProtectedRoute>
   )
 }
