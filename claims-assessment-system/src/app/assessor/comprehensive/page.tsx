@@ -1,6 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import StatusTimeline from '@/components/StatusTimeline'
+import AIDebugPanel from '@/components/AIDebugPanel'
+
 import { 
   Shield, 
   Search, 
@@ -416,6 +419,9 @@ export default function ComprehensiveAssessorDashboard() {
                 </div>
               </div>
             </div>
+
+            {/* AI Debug Panel */}
+            <AIDebugPanel />
           </div>
 
           {/* Assessment Panel - Right column */}

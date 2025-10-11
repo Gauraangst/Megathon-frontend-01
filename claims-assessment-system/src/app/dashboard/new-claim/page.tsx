@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import ImageAnalysisPreview from '@/components/ImageAnalysisPreview'
 import { 
   Shield, 
   ArrowLeft, 
@@ -563,23 +564,33 @@ export default function NewClaimPage() {
         </div>
         
         {formData.photos.length > 0 && (
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
-            {formData.photos.map((file, index) => (
-              <div key={index} className="relative">
-                <div className="bg-gray-100 rounded-lg p-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="truncate text-black">{file.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(index, 'photos')}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+          <div className="mt-4 space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {formData.photos.map((file, index) => (
+                <div key={index} className="relative">
+                  <div className="bg-gray-100 rounded-lg p-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="truncate text-black">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(index, 'photos')}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
+                  
+                  {/* AI Analysis for each uploaded photo */}
+                  <ImageAnalysisPreview 
+                    imageFile={file}
+                    onAnalysisComplete={(result) => {
+                      console.log(`Analysis for ${file.name}:`, result)
+                    }}
+                  />
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </div>

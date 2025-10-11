@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import ServerStatusIndicator from '@/components/ServerStatusIndicator'
 import { 
   Shield, 
   Plus, 
@@ -209,6 +210,7 @@ END OF REPORT
             <p className="mt-2 text-gray-600">Monitor claims performance and fraud detection metrics</p>
           </div>
           <div className="flex items-center space-x-4">
+            <ServerStatusIndicator />
             <select
               value={timeFilter}
               onChange={(e) => setTimeFilter(e.target.value)}
