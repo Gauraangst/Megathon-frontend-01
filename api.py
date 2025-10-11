@@ -19,9 +19,12 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # API_KEY = "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"
 # API_KEY =  "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"
-API_KEY =  "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"
-key2="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"
+# API_KEY =  "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"
+# key2="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"
 # Global variable to store the description text
+
+API_KEY="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"
+key2=API_KEY
 description_text = ""
 
 

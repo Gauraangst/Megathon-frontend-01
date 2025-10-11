@@ -3,6 +3,8 @@
 import Link from "next/link"
 import React, { useState, useEffect } from "react"
 import { Shield, Brain, Eye, TrendingUp, CheckCircle, Users, Ship, Building, Music, Flame, Trophy, Zap, Star, Globe, Diamond, Skull } from "lucide-react"
+import QuickCarAnalysis from '@/components/QuickCarAnalysis'
+import FloatingDebugButton from '@/components/FloatingDebugButton'
 
 export default function Home() {
   const [currentFact, setCurrentFact] = useState(0)
@@ -200,6 +202,13 @@ export default function Home() {
               </div>
             </main>
           </div>
+        </div>
+      </div>
+
+      {/* DEBUG: Quick Car Analysis */}
+      <div className="py-16 bg-gradient-to-br from-red-50 to-orange-50 relative">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <QuickCarAnalysis />
         </div>
       </div>
 
@@ -503,6 +512,9 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Floating Debug Button */}
+      <FloatingDebugButton />
     </div>
   )
 }
