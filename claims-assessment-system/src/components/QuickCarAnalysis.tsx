@@ -22,7 +22,6 @@ export default function QuickCarAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [result, setResult] = useState<CarAnalysisResult | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [showDebug, setShowDebug] = useState(false)
   const [isComprehensiveAnalysis, setIsComprehensiveAnalysis] = useState(false)
   const [endpointStatus, setEndpointStatus] = useState<{exists: boolean, error?: string} | null>(null)
 
@@ -59,8 +58,8 @@ export default function QuickCarAnalysis() {
           image_analysis: analysis,
           damage_estimate: damage,
           ai_detection: ai_detection,
-          repair_cost_inr: repairCost,
           risk_assessment: riskInfo,
+          repair_cost_inr: repairCost,
           timestamp: new Date().toISOString(),
           filename: file.name
         }
@@ -70,6 +69,7 @@ export default function QuickCarAnalysis() {
         throw new Error(comprehensiveResult.error || 'Analysis failed')
       }
     } catch (err) {
+      console.error('Analysis error:', err)
       setError(err instanceof Error ? err.message : 'Unknown error occurred')
     } finally {
       setIsAnalyzing(false)
@@ -109,6 +109,53 @@ export default function QuickCarAnalysis() {
     }
 
     return 'Cost analysis in progress'
+  }
+
+  const parseRepairCostSummary = (estimate: string) => {
+    const summary = {
+      totalRange: '',
+      conservative: '',
+      typical: '',
+      maximum: '',
+      majorItems: [] as string[]
+    }
+
+    // Extract total range
+    const totalMatch = estimate.match(/\*\*Total[^|]*\*\*[^|]*\|\s*\*\*([^*]+)\*\*/i)
+    if (totalMatch) {
+      summary.totalRange = totalMatch[1].trim()
+    }
+
+    // Extract estimates
+    const conservativeMatch = estimate.match(/\*\*Conservative estimate\*\*[^₹]*₹([^)]+)\)/i)
+    if (conservativeMatch) {
+      summary.conservative = `₹${conservativeMatch[1].trim()}`
+    }
+
+    const typicalMatch = estimate.match(/\*\*Typical scenario\*\*[^₹]*₹([^)]+)\)/i)
+    if (typicalMatch) {
+      summary.typical = `₹${typicalMatch[1].trim()}`
+    }
+
+    const maxMatch = estimate.match(/\*\*Worst[^₹]*₹([^)]+)\)/i)
+    if (maxMatch) {
+      summary.maximum = `₹${maxMatch[1].trim()}`
+    }
+
+    // Extract major repair items from table
+    const tableLines = estimate.split('\n').filter(line => line.includes('|') && line.includes('₹'))
+    tableLines.forEach(line => {
+      const parts = line.split('|').map(p => p.trim())
+      if (parts.length >= 2 && parts[0] && parts[1] && !parts[0].includes('Item')) {
+        const item = parts[0].replace(/\*/g, '').trim()
+        const cost = parts[1].replace(/\*/g, '').trim()
+        if (item && cost && item !== 'Total') {
+          summary.majorItems.push(`${item}: ${cost}`)
+        }
+      }
+    })
+
+    return summary
   }
 
   const parseMarkdownTable = (text: string) => {
@@ -369,121 +416,6 @@ export default function QuickCarAnalysis() {
             )
           })()}
 
-          {/* Detailed Results */}
-          <div className="bg-gray-50 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold text-gray-900">Detailed Analysis</h4>
-              <button
-                onClick={() => setShowDebug(!showDebug)}
-                className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 transition-colors"
-              >
-                {showDebug ? 'Hide' : 'Show'} JSON Debug
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Damage Description
-                </label>
-                <p className="text-gray-900 bg-white p-3 rounded border text-sm">
-                  {result.image_analysis.description}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  AI Detection Analysis
-                </label>
-                <div className="bg-white p-3 rounded border text-sm space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Detection Result:</span>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      result.image_analysis.ai_generated_likelihood > 0.5
-                        ? 'bg-red-100 text-red-800' 
-                        : 'bg-green-100 text-green-800'
-                    }`}>
-                      {result.image_analysis.ai_generated_likelihood > 0.5 ? 'Likely AI Generated' : 'Likely Authentic'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">AI Likelihood Score:</span>
-                    <span className={`font-semibold ${
-                      result.image_analysis.ai_generated_likelihood > 0.7 ? 'text-red-600' :
-                      result.image_analysis.ai_generated_likelihood > 0.4 ? 'text-yellow-600' : 'text-green-600'
-                    }`}>
-                      {Math.round(result.image_analysis.ai_generated_likelihood * 100)}%
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Risk Level:</span>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${result.risk_assessment.color}`}>
-                      {result.risk_assessment.level}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="font-medium block mb-1">Analysis Reasoning:</span>
-                    <p className="text-gray-700 text-xs">
-                      {result.image_analysis.confidence_reasoning || 'No detailed reasoning available'}
-                    </p>
-                  </div>
-                  
-                  {/* Additional AI Detection from /check_ai endpoint if available */}
-                  {result.ai_detection?.parsed_analysis && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <span className="font-medium block mb-1 text-purple-700">Secondary AI Detection:</span>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs">Endpoint Result:</span>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          result.ai_detection.parsed_analysis.is_ai_generated 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {result.ai_detection.parsed_analysis.is_ai_generated ? 'AI Generated' : 'Authentic'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs">Confidence:</span>
-                        <span className="text-xs text-gray-600">
-                          {Math.round(result.ai_detection.parsed_analysis.confidence_score * 100)}%
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Repair Cost Analysis
-                </label>
-                <p className="text-gray-900 bg-white p-3 rounded border text-sm">
-                  {result.damage_estimate.estimated_damage}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Risk Assessment
-                </label>
-                <p className="text-gray-900 bg-white p-3 rounded border text-sm">
-                  {result.risk_assessment.description}
-                </p>
-              </div>
-            </div>
-
-            {/* JSON Debug Output */}
-            {showDebug && (
-              <div className="mt-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Complete JSON Response
-                </label>
-                <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-xs overflow-x-auto">
-                  {JSON.stringify(result, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
 
           {/* Action Buttons */}
           <div className="flex space-x-4">

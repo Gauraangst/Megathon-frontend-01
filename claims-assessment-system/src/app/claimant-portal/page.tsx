@@ -20,70 +20,52 @@ import {
   X
 } from 'lucide-react'
 import StatusTimeline from '@/components/StatusTimeline'
+import { claimsDB, ClaimData } from '@/services/claimsDatabase'
+import ClaimSubmissionForm from '@/components/ClaimSubmissionForm'
 
-// Mock data for vehicle insurance claims
-const mockClaims = [
-  {
-    id: 'CLM-001',
-    title: 'Collision - Front End Damage',
-    status: 'ai_review' as const,
-    submittedDate: '2024-01-15',
-    estimatedAmount: 3200,
-    type: 'Personal Vehicle',
-    vehicleInfo: 'Toyota Camry 2022',
-    location: 'Downtown Intersection',
-    priority: 'medium'
-  },
-  {
-    id: 'CLM-002',
-    title: 'Commercial Vehicle - Side Impact',
-    status: 'assessor_review' as const,
-    submittedDate: '2024-01-12',
-    estimatedAmount: 8500,
-    type: 'Commercial Vehicle',
-    vehicleInfo: 'Ford Transit Van 2021',
-    location: 'Highway 401',
-    priority: 'high'
-  },
-  {
-    id: 'CLM-003',
-    title: 'Vehicle Theft - Total Loss',
-    status: 'completed' as const,
-    submittedDate: '2024-01-08',
-    estimatedAmount: 25000,
-    type: 'Personal Vehicle',
-    vehicleInfo: 'Honda Civic 2023',
-    location: 'Shopping Mall Parking',
-    priority: 'high'
+// Transform ClaimData to display format
+const transformClaimForDisplay = (claim: ClaimData) => {
+  const getEstimatedAmount = () => {
+    if (claim.aiAnalysis?.estimatedRepairCost) {
+      const match = claim.aiAnalysis.estimatedRepairCost.match(/₹([\d,]+)/)
+      if (match) {
+        return parseInt(match[1].replace(/,/g, ''))
+      }
+    }
+    return Math.floor(Math.random() * 50000) + 10000 // Fallback random amount
   }
-]
 
-const resolvedClaims = [
-  {
-    id: 'CLM-004',
-    title: 'Rear-End Collision',
-    status: 'completed' as const,
-    submittedDate: '2023-12-20',
-    resolvedDate: '2024-01-05',
-    finalAmount: 4200,
-    type: 'Personal Vehicle',
-    vehicleInfo: 'BMW 3 Series 2020',
-    location: 'City Center',
-    priority: 'medium'
-  },
-  {
-    id: 'CLM-005',
-    title: 'Commercial Fleet - Multiple Damage',
-    status: 'completed' as const,
-    submittedDate: '2023-12-15',
-    resolvedDate: '2024-01-02',
-    finalAmount: 15500,
-    type: 'Commercial Vehicle',
-    vehicleInfo: 'Mercedes Sprinter 2019',
-    location: 'Industrial District',
-    priority: 'high'
+  const getPriority = () => {
+    if (claim.aiAnalysis?.fraudRiskLevel === 'High') return 'high'
+    if (claim.aiAnalysis?.fraudRiskLevel === 'Medium') return 'medium'
+    return 'low'
   }
-]
+
+  const getVehicleType = () => {
+    const makeModel = claim.vehicleDetails.makeModel.toLowerCase()
+    if (makeModel.includes('truck') || makeModel.includes('van') || makeModel.includes('commercial')) {
+      return 'Commercial Vehicle'
+    }
+    return 'Personal Vehicle'
+  }
+
+  return {
+    id: claim.claimId,
+    referenceNumber: claim.referenceNumber,
+    title: `${claim.incidentDetails.situation} - ${claim.vehicleDetails.makeModel}`,
+    status: claim.status.toLowerCase().replace(' ', '_') as 'pending_review' | 'ai_review' | 'assessor_review' | 'completed' | 'flagged' | 'rejected',
+    submittedDate: new Date(claim.dateSubmitted).toISOString().split('T')[0],
+    estimatedAmount: getEstimatedAmount(),
+    type: getVehicleType(),
+    vehicleInfo: `${claim.vehicleDetails.makeModel} (${claim.vehicleDetails.color})`,
+    location: claim.incidentDetails.location,
+    priority: getPriority(),
+    resolvedDate: claim.manualAssessment?.assessmentTimestamp ? 
+      new Date(claim.manualAssessment.assessmentTimestamp).toISOString().split('T')[0] : undefined,
+    finalAmount: claim.manualAssessment?.recommendedClaimAmount ? 
+      parseInt(claim.manualAssessment.recommendedClaimAmount.replace(/[₹,]/g, '')) : undefined
+  }
+}
 
 export default function ClaimantPortalPage() {
   const [activeTab, setActiveTab] = useState<'active' | 'resolved'>('active')
@@ -91,7 +73,39 @@ export default function ClaimantPortalPage() {
   const [sortBy, setSortBy] = useState('date-desc')
   const [filterBy, setFilterBy] = useState('all')
   const [showFilters, setShowFilters] = useState(false)
+  const [showNewClaimForm, setShowNewClaimForm] = useState(false)
+  const [userClaims, setUserClaims] = useState<ClaimData[]>([])
+  const [userEmail] = useState('user@example.com') // In real app, get from auth
   const filterRef = useRef<HTMLDivElement>(null)
+
+  // Load user claims on component mount
+  useEffect(() => {
+    const loadClaims = () => {
+      const claims = claimsDB.getUserClaims(userEmail)
+      setUserClaims(claims)
+    }
+    
+    loadClaims()
+    // Set up interval to refresh claims data
+    const interval = setInterval(loadClaims, 5000)
+    return () => clearInterval(interval)
+  }, [userEmail])
+
+  // Handle new claim submission
+  const handleClaimSubmitted = (newClaim: ClaimData) => {
+    setUserClaims(prev => [newClaim, ...prev])
+    setShowNewClaimForm(false)
+    alert(`Claim ${newClaim.referenceNumber} submitted successfully!`)
+  }
+
+  // Transform claims for display
+  const displayClaims = userClaims.map(transformClaimForDisplay)
+  const activeClaims = displayClaims.filter(claim => 
+    !['completed', 'approved', 'rejected'].includes(claim.status)
+  )
+  const resolvedClaims = displayClaims.filter(claim => 
+    ['completed', 'approved', 'rejected'].includes(claim.status)
+  )
 
   // Close filter dropdown when clicking outside
   useEffect(() => {
@@ -133,7 +147,9 @@ export default function ClaimantPortalPage() {
     }
   }
 
-  const sortClaims = (claims: typeof mockClaims) => {
+  type DisplayClaim = ReturnType<typeof transformClaimForDisplay>
+
+  const sortClaims = (claims: DisplayClaim[]) => {
     const sorted = [...claims]
     
     switch (sortBy) {
@@ -154,7 +170,7 @@ export default function ClaimantPortalPage() {
     }
   }
 
-  const filterClaims = (claims: typeof mockClaims) => {
+  const filterClaims = (claims: DisplayClaim[]) => {
     let filtered = claims
 
     // Search filter - make sure searchTerm is trimmed and not empty
@@ -193,7 +209,7 @@ export default function ClaimantPortalPage() {
   }
 
   const getFilteredAndSortedActiveClaims = () => {
-    const filtered = filterClaims(mockClaims)
+    const filtered = filterClaims(activeClaims)
     return sortClaims(filtered)
   }
 
@@ -236,17 +252,25 @@ export default function ClaimantPortalPage() {
     const sorted = [...filtered]
     switch (sortBy) {
       case 'date-desc':
-        return sorted.sort((a, b) => new Date(b.resolvedDate).getTime() - new Date(a.resolvedDate).getTime())
+        return sorted.sort((a, b) => {
+          const aDate = a.resolvedDate ? new Date(a.resolvedDate).getTime() : 0
+          const bDate = b.resolvedDate ? new Date(b.resolvedDate).getTime() : 0
+          return bDate - aDate
+        })
       case 'date-asc':
-        return sorted.sort((a, b) => new Date(a.resolvedDate).getTime() - new Date(b.resolvedDate).getTime())
+        return sorted.sort((a, b) => {
+          const aDate = a.resolvedDate ? new Date(a.resolvedDate).getTime() : 0
+          const bDate = b.resolvedDate ? new Date(b.resolvedDate).getTime() : 0
+          return aDate - bDate
+        })
       case 'title-asc':
         return sorted.sort((a, b) => a.title.localeCompare(b.title))
       case 'title-desc':
         return sorted.sort((a, b) => b.title.localeCompare(a.title))
       case 'amount-desc':
-        return sorted.sort((a, b) => b.finalAmount - a.finalAmount)
+        return sorted.sort((a, b) => (b.finalAmount || 0) - (a.finalAmount || 0))
       case 'amount-asc':
-        return sorted.sort((a, b) => a.finalAmount - b.finalAmount)
+        return sorted.sort((a, b) => (a.finalAmount || 0) - (b.finalAmount || 0))
       default:
         return sorted
     }
@@ -299,8 +323,8 @@ export default function ClaimantPortalPage() {
                 <FileText className="h-8 w-8 text-blue-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Vehicle Claims</p>
-                <p className="text-2xl font-semibold text-gray-900">5</p>
+                <p className="text-sm font-medium text-gray-500">Total Claims</p>
+                <p className="text-2xl font-semibold text-gray-900">{displayClaims.length}</p>
               </div>
             </div>
           </div>
@@ -312,7 +336,7 @@ export default function ClaimantPortalPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">In Progress</p>
-                <p className="text-2xl font-semibold text-gray-900">3</p>
+                <p className="text-2xl font-semibold text-gray-900">{activeClaims.length}</p>
               </div>
             </div>
           </div>
@@ -323,8 +347,8 @@ export default function ClaimantPortalPage() {
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Settled</p>
-                <p className="text-2xl font-semibold text-gray-900">2</p>
+                <p className="text-sm font-medium text-gray-500">Completed</p>
+                <p className="text-2xl font-semibold text-gray-900">{resolvedClaims.length}</p>
               </div>
             </div>
           </div>
@@ -335,8 +359,8 @@ export default function ClaimantPortalPage() {
                 <Car className="h-8 w-8 text-blue-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Vehicles Covered</p>
-                <p className="text-2xl font-semibold text-gray-900">3</p>
+                <p className="text-sm font-medium text-gray-500">Vehicles</p>
+                <p className="text-2xl font-semibold text-gray-900">{new Set(displayClaims.map(c => c.vehicleInfo)).size}</p>
               </div>
             </div>
           </div>
@@ -453,13 +477,13 @@ export default function ClaimantPortalPage() {
               </div>
               
               {/* New Claim Button */}
-              <Link
-                href="/dashboard/new-claim"
+              <button
+                onClick={() => setShowNewClaimForm(true)}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors whitespace-nowrap"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 New Claim
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -468,7 +492,7 @@ export default function ClaimantPortalPage() {
         <div className="flex items-center justify-between mb-4">
           <div className="text-sm text-gray-600">
             {activeTab === 'active' ? (
-              <>Showing {getFilteredAndSortedActiveClaims().length} of {mockClaims.length} active claims</>
+              <>Showing {getFilteredAndSortedActiveClaims().length} of {activeClaims.length} active claims</>
             ) : (
               <>Showing {getFilteredAndSortedResolvedClaims().length} of {resolvedClaims.length} resolved claims</>
             )}
@@ -492,6 +516,29 @@ export default function ClaimantPortalPage() {
           )}
         </div>
 
+
+        {/* New Claim Form Modal */}
+        {showNewClaimForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-4 border-b flex justify-between items-center">
+                <h2 className="text-xl font-bold">Submit New Claim</h2>
+                <button
+                  onClick={() => setShowNewClaimForm(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="p-4">
+                <ClaimSubmissionForm 
+                  onClaimSubmitted={handleClaimSubmitted}
+                  userEmail={userEmail}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Claims Grid */}
         <div className="grid gap-6">
@@ -535,7 +582,10 @@ export default function ClaimantPortalPage() {
                 </div>
               </div>
               
-              <StatusTimeline currentStatus={claim.status} className="mb-4" />
+              <StatusTimeline 
+                currentStatus={claim.status === 'pending_review' ? 'submitted' : claim.status as 'submitted' | 'ai_review' | 'assessor_review' | 'completed'} 
+                className="mb-4" 
+              />
               
               <div className="flex justify-end space-x-3">
                 <Link
@@ -572,7 +622,7 @@ export default function ClaimantPortalPage() {
                     </span>
                     <span className="flex items-center">
                       <DollarSign className="h-4 w-4 mr-1" />
-                      ${claim.finalAmount.toLocaleString()}
+                      ${(claim.finalAmount || 0).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex items-center space-x-4 text-sm text-gray-600 mb-4">
@@ -588,7 +638,10 @@ export default function ClaimantPortalPage() {
                 </div>
               </div>
               
-              <StatusTimeline currentStatus={claim.status} className="mb-4" />
+              <StatusTimeline 
+                currentStatus={'completed' as 'submitted' | 'ai_review' | 'assessor_review' | 'completed'} 
+                className="mb-4" 
+              />
               
               <div className="flex justify-end space-x-3">
                 <Link

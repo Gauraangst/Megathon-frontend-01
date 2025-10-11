@@ -34,55 +34,45 @@ import {
   ChevronRight,
   Upload
 } from 'lucide-react'
+import { claimsDB, ClaimData } from '@/services/claimsDatabase'
 
-// Mock data for claims list
-const pendingClaims = [
-  {
-    id: 'CLM-001',
-    referenceNumber: 'CHB-2024-001',
-    title: 'Vehicle Accident - Front Bumper Damage',
-    submittedDate: '2024-01-15T10:30:00',
-    status: 'Under Assessment',
-    assignedAssessor: 'Jane Assessor',
-    assessorId: 'ASS-001',
-    policyHolder: 'John Smith',
-    authenticityScore: 85,
-    damageSeverityScore: 72,
-    estimatedAmount: 2500,
-    riskLevel: 'Low',
-    priority: 'Medium'
-  },
-  {
-    id: 'CLM-002', 
-    referenceNumber: 'CHB-2024-002',
-    title: 'Property Fire Damage - Kitchen',
-    submittedDate: '2024-01-14T14:20:00',
-    status: 'Pending Review',
-    assignedAssessor: 'Mike Johnson',
-    assessorId: 'ASS-002',
-    policyHolder: 'Sarah Wilson',
-    authenticityScore: 45,
-    damageSeverityScore: 89,
-    estimatedAmount: 15000,
-    riskLevel: 'High',
-    priority: 'High'
-  },
-  {
-    id: 'CLM-003',
-    referenceNumber: 'CHB-2024-003', 
-    title: 'Vehicle Theft - Total Loss',
-    submittedDate: '2024-01-13T09:15:00',
-    status: 'Flagged',
-    assignedAssessor: 'Jane Assessor',
-    assessorId: 'ASS-001',
-    policyHolder: 'Michael Davis',
-    authenticityScore: 23,
-    damageSeverityScore: 95,
-    estimatedAmount: 45000,
-    riskLevel: 'High',
-    priority: 'High'
+// Transform ClaimData for assessor display
+const transformClaimForAssessor = (claim: ClaimData) => {
+  const getEstimatedAmount = () => {
+    if (claim.aiAnalysis?.estimatedRepairCost) {
+      const match = claim.aiAnalysis.estimatedRepairCost.match(/₹([\d,]+)/)
+      if (match) {
+        return parseInt(match[1].replace(/,/g, ''))
+      }
+    }
+    return Math.floor(Math.random() * 50000) + 10000
   }
-]
+
+  const getPriority = () => {
+    if (claim.aiAnalysis?.fraudRiskLevel === 'High') return 'High'
+    if (claim.aiAnalysis?.fraudRiskLevel === 'Medium') return 'Medium'
+    return 'Low'
+  }
+
+  return {
+    id: claim.claimId,
+    referenceNumber: claim.referenceNumber,
+    title: `${claim.incidentDetails.situation} - ${claim.vehicleDetails.makeModel}`,
+    submittedDate: claim.dateSubmitted,
+    status: claim.status,
+    assignedAssessor: claim.assignedAssessor || 'Auto-assigned',
+    assessorId: 'ASS-001',
+    policyHolder: claim.userDetails.fullName,
+    authenticityScore: claim.aiAnalysis?.authenticityScore || Math.floor(Math.random() * 40) + 60,
+    damageSeverityScore: claim.aiAnalysis?.damageSeverityScore || Math.floor(Math.random() * 50) + 50,
+    estimatedAmount: getEstimatedAmount(),
+    riskLevel: claim.aiAnalysis?.fraudRiskLevel || 'Medium',
+    priority: getPriority(),
+    vehicleInfo: `${claim.vehicleDetails.makeModel} (${claim.vehicleDetails.color})`,
+    location: claim.incidentDetails.location,
+    aiGeneratedLikelihood: claim.aiAnalysis?.aiGeneratedLikelihood || Math.random() * 0.3
+  }
+}
 
 export default function AssessorClaimsPage() {
   const searchParams = useSearchParams()
@@ -90,6 +80,23 @@ export default function AssessorClaimsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [isExporting, setIsExporting] = useState(false)
+  const [allClaims, setAllClaims] = useState<ClaimData[]>([])
+
+  // Load claims data
+  useEffect(() => {
+    const loadClaims = () => {
+      const claims = claimsDB.getAllClaims()
+      setAllClaims(claims)
+    }
+    
+    loadClaims()
+    // Refresh claims every 5 seconds
+    const interval = setInterval(loadClaims, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Transform claims for display
+  const pendingClaims = allClaims.map(transformClaimForAssessor)
 
   // Handle URL parameters for filtering
   useEffect(() => {
