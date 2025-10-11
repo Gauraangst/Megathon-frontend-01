@@ -3,14 +3,27 @@
 import React, { useState } from 'react'
 import { Upload, Camera, Mic, MicOff, User, Car, MapPin, Clock, FileText, AlertTriangle } from 'lucide-react'
 import { claimsDB, ClaimData } from '../services/claimsDatabase'
+import { supabase, dbHelpers } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 import ClaimantImageAnalysis from './ClaimantImageAnalysis'
+
+// Helper function to convert image to base64
+const convertImageToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 interface ClaimSubmissionFormProps {
   onClaimSubmitted: (claim: ClaimData) => void
   userEmail?: string
 }
 
-export default function ClaimSubmissionForm({ onClaimSubmitted, userEmail = "user@example.com" }: ClaimSubmissionFormProps) {
+export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissionFormProps) {
+  const { user, userProfile } = useAuth()
   const [currentStep, setCurrentStep] = useState(1)
   const [isRecording, setIsRecording] = useState(false)
   const [uploadedImages, setUploadedImages] = useState<File[]>([])
@@ -20,10 +33,10 @@ export default function ClaimSubmissionForm({ onClaimSubmitted, userEmail = "use
   // Form data state
   const [formData, setFormData] = useState({
     // User Details
-    fullName: '',
-    drivingLicense: '',
+    fullName: userProfile?.full_name || '',
+    drivingLicense: userProfile?.driving_license || '',
     policyNumber: '',
-    email: userEmail,
+    email: userProfile?.email || user?.email || '',
     
     // Vehicle Details
     makeModel: '',
@@ -72,23 +85,97 @@ export default function ClaimSubmissionForm({ onClaimSubmitted, userEmail = "use
     setIsSubmitting(true)
     
     try {
-      // Simulate image upload and get URLs
-      const imagePromises = uploadedImages.map(async (file, index) => ({
-        id: `img-${Date.now()}-${index}`,
-        filename: file.name,
-        url: `/api/images/${file.name}`, // In real app, upload to storage
-        uploadedAt: new Date().toISOString()
-      }))
-      
-      const images = await Promise.all(imagePromises)
+      console.log('🚀 CLAIM SUBMISSION: Starting submission process')
+      console.log('👤 User ID:', user?.id)
+      console.log('📧 User Email:', user?.email)
 
-      // Create claim data
+      if (!user?.id) {
+        throw new Error('User not authenticated')
+      }
+
+      // Prepare claim data for Supabase
       const claimData = {
+        user_id: user.id,
+        claim_type: (formData.situation === 'collision' ? 'collision' : 
+                   formData.situation === 'theft' ? 'theft' : 
+                   formData.situation === 'vandalism' ? 'vandalism' : 'other') as 'collision' | 'theft' | 'vandalism' | 'other',
+        policy_number: formData.policyNumber,
+        
+        // Vehicle information
+        vehicle_make_model: formData.makeModel,
+        vehicle_color: formData.color,
+        vehicle_license_plate: formData.licensePlate,
+        
+        // Incident details
+        incident_date: formData.incidentDate,
+        incident_time: formData.incidentTime,
+        incident_location: formData.location,
+        incident_description: formData.description,
+        
+        // Other party details
+        other_party_involved: formData.otherPartyInvolved,
+        other_party_details: formData.otherPartyDetails,
+        
+        // AI Analysis results (if available)
+        ai_analysis_result: aiAnalysisResult ? {
+          damage_description: aiAnalysisResult.image_analysis?.description,
+          estimated_cost: aiAnalysisResult.repair_cost_inr,
+          confidence_reasoning: aiAnalysisResult.image_analysis?.confidence_reasoning,
+          ai_generated_likelihood: aiAnalysisResult.image_analysis?.ai_generated_likelihood
+        } : null,
+        estimated_damage_cost: aiAnalysisResult ? 
+          parseFloat(aiAnalysisResult.repair_cost_inr?.replace(/[₹,]/g, '') || '0') : undefined
+      }
+
+      console.log('📊 Claim data to submit:', claimData)
+
+      // Submit to Supabase
+      const { data: submittedClaim, error } = await dbHelpers.createClaim(claimData)
+      
+      if (error) {
+        console.error('❌ Claim submission error:', error)
+        throw new Error(error.message || 'Failed to submit claim')
+      }
+
+      console.log('✅ Claim submitted successfully:', submittedClaim)
+
+      // Handle image uploads if any
+      if (uploadedImages.length > 0 && submittedClaim) {
+        console.log('📸 Processing image uploads...')
+        
+        for (const image of uploadedImages) {
+          try {
+            // Convert image to base64 for storage
+            const base64Image = await convertImageToBase64(image)
+            
+            const imageData = {
+              claim_id: submittedClaim.id,
+              image_filename: image.name,
+              image_type: 'damage',
+              image_url: base64Image, // Store as base64
+              ai_analysis: aiAnalysisResult || null
+            }
+            
+            await dbHelpers.addClaimImage(imageData)
+            
+            console.log('📸 Image saved to database:', image.name)
+          } catch (imageError) {
+            console.error('❌ Image upload error:', imageError)
+          }
+        }
+      }
+
+      // Create legacy format for compatibility
+      const legacyClaim: ClaimData = {
+        claimId: submittedClaim.claim_number,
+        referenceNumber: submittedClaim.claim_number,
+        dateSubmitted: submittedClaim.created_at,
+        status: 'Pending Review',
         userDetails: {
           fullName: formData.fullName,
+          email: formData.email,
           drivingLicense: formData.drivingLicense,
-          policyNumber: formData.policyNumber,
-          email: formData.email
+          policyNumber: formData.policyNumber
         },
         vehicleDetails: {
           makeModel: formData.makeModel,
@@ -107,38 +194,20 @@ export default function ClaimSubmissionForm({ onClaimSubmitted, userEmail = "use
           description: formData.description
         },
         visualEvidence: {
-          images
+          images: uploadedImages.map(file => ({
+            id: `img-${Date.now()}-${Math.random()}`,
+            filename: file.name,
+            url: URL.createObjectURL(file),
+            uploadedAt: new Date().toISOString()
+          }))
         }
       }
 
-      // Submit to database
-      const submittedClaim = claimsDB.submitClaim(claimData)
-      
-      // Trigger AI analysis for the first image if available
-      if (images.length > 0) {
-        // In a real app, this would trigger the AI analysis
-        setTimeout(() => {
-          // Simulate AI analysis completion
-          const mockAnalysis = {
-            authenticityScore: Math.floor(Math.random() * 40) + 60, // 60-100%
-            damageSeverityScore: Math.floor(Math.random() * 50) + 50, // 50-100%
-            fraudRiskLevel: 'Medium' as const,
-            aiGeneratedLikelihood: Math.random() * 0.3, // 0-30%
-            estimatedRepairCost: `₹${Math.floor(Math.random() * 100000) + 50000}`,
-            analysisTimestamp: new Date().toISOString(),
-            anomalies: [],
-            reasoning: 'Image appears authentic with consistent lighting and damage patterns.'
-          }
-          
-          claimsDB.addAIAnalysis(submittedClaim.claimId, mockAnalysis)
-        }, 2000)
-      }
-
-      onClaimSubmitted(submittedClaim)
+      onClaimSubmitted(legacyClaim)
       
       // Reset form
       setFormData({
-        fullName: '', drivingLicense: '', policyNumber: '', email: userEmail,
+        fullName: userProfile?.full_name || '', drivingLicense: userProfile?.driving_license || '', policyNumber: '', email: userProfile?.email || user?.email || '',
         makeModel: '', color: '', licensePlate: '',
         incidentDate: '', incidentTime: '', location: '', situation: '',
         otherPartyInvolved: false, otherPartyDetails: '', injuries: '',

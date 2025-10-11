@@ -1,7 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import ProtectedRoute from '@/components/ProtectedRoute'
+import { useAuth } from '@/contexts/AuthContext'
+import { dbHelpers } from '@/lib/supabase'
 import ServerStatusIndicator from '@/components/ServerStatusIndicator'
 import { 
   Shield, 
@@ -63,8 +66,60 @@ const recentHighPriorityClaims = [
   { id: 'CLM-1247', type: 'Personal Injury', amount: 125000, riskScore: 67, assignee: 'Sarah Davis' }
 ]
 
-export default function AssessorOverviewPage() {
+function AssessorOverviewPage() {
+  const { user, userProfile, signOut } = useAuth()
   const [isExporting, setIsExporting] = useState(false)
+  const [claims, setClaims] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
+    totalClaims: 0,
+    pendingReview: 0,
+    aiReview: 0,
+    completed: 0,
+    totalValue: 0,
+    avgProcessingTime: 0
+  })
+
+  // Load claims data
+  useEffect(() => {
+    const loadClaimsData = async () => {
+      try {
+        console.log('📊 ASSESSOR: Loading all claims...')
+        const { data: claimsData, error } = await dbHelpers.getAllClaims()
+        
+        if (error) {
+          console.error('❌ Error loading claims:', error)
+          return
+        }
+
+        console.log('✅ ASSESSOR: Loaded claims:', claimsData?.length || 0)
+        setClaims(claimsData || [])
+
+        // Calculate stats from all claims (admin sees everything)
+        const totalClaims = claimsData?.length || 0
+        const pendingReview = claimsData?.filter(c => c.status === 'submitted').length || 0
+        const aiReview = claimsData?.filter(c => c.status === 'ai_review').length || 0
+        const completed = claimsData?.filter(c => c.status === 'completed').length || 0
+        const totalValue = claimsData?.reduce((sum, c) => sum + (c.estimated_damage_cost || 0), 0) || 0
+
+        setStats({
+          totalClaims,
+          pendingReview,
+          aiReview,
+          completed,
+          totalValue,
+          avgProcessingTime: 2.5 // Mock average
+        })
+
+      } catch (err) {
+        console.error('💥 Exception loading claims:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadClaimsData()
+  }, [])
 
   // PDF Export functionality
   const generateAnalyticsReport = () => {
@@ -236,7 +291,7 @@ END OF REPORT
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Claims</p>
-                <p className="text-2xl font-semibold text-gray-900">{dashboardStats.totalClaims.toLocaleString()}</p>
+                <p className="text-2xl font-semibold text-gray-900">{loading ? '...' : stats.totalClaims.toLocaleString()}</p>
                 <p className="text-sm text-green-600">↑ 12% from last month</p>
               </div>
             </div>
@@ -249,7 +304,7 @@ END OF REPORT
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Pending Review</p>
-                <p className="text-2xl font-semibold text-gray-900">{dashboardStats.pendingReview}</p>
+                <p className="text-2xl font-semibold text-gray-900">{loading ? '...' : stats.pendingReview}</p>
                 <p className="text-sm text-yellow-600">Requires attention</p>
               </div>
             </div>
@@ -262,7 +317,7 @@ END OF REPORT
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Fraud Detected</p>
-                <p className="text-2xl font-semibold text-gray-900">{dashboardStats.flaggedForFraud}</p>
+                <p className="text-2xl font-semibold text-gray-900">{loading ? '...' : stats.aiReview}</p>
                 <p className="text-sm text-red-600">High priority</p>
               </div>
             </div>
@@ -275,7 +330,7 @@ END OF REPORT
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Detection Rate</p>
-                <p className="text-2xl font-semibold text-gray-900">{dashboardStats.fraudDetectionRate}%</p>
+                <p className="text-2xl font-semibold text-gray-900">{loading ? '...' : stats.completed}%</p>
                 <p className="text-sm text-green-600">↑ 2.1% accuracy</p>
               </div>
             </div>
@@ -383,21 +438,22 @@ END OF REPORT
               </Link>
             </div>
             <div className="space-y-3">
-              {recentHighPriorityClaims.map((claim, index) => (
+              {claims.slice(0, 5).map((claim, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{claim.id}</p>
-                    <p className="text-xs text-gray-500">{claim.type} • ${claim.amount.toLocaleString()}</p>
+                    <p className="text-sm font-medium text-gray-900">{claim.claim_number}</p>
+                    <p className="text-xs text-gray-500">{claim.claim_type} • ₹{(claim.estimated_damage_cost || 0).toLocaleString()}</p>
                   </div>
                   <div className="text-right">
                     <div className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                      claim.riskScore > 50 ? 'bg-red-100 text-red-800' : 
-                      claim.riskScore > 25 ? 'bg-yellow-100 text-yellow-800' : 
-                      'bg-green-100 text-green-800'
+                      claim.status === 'submitted' ? 'bg-yellow-100 text-yellow-800' : 
+                      claim.status === 'ai_review' ? 'bg-blue-100 text-blue-800' : 
+                      claim.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      'bg-gray-100 text-gray-800'
                     }`}>
-                      Risk: {claim.riskScore}%
+                      {claim.status.replace('_', ' ').toUpperCase()}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">{claim.assignee}</p>
+                    <p className="text-xs text-gray-500 mt-1">{claim.assigned_assessor?.full_name || 'Unassigned'}</p>
                   </div>
                 </div>
               ))}
@@ -456,5 +512,13 @@ END OF REPORT
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AssessorOverviewPageWrapper() {
+  return (
+    <ProtectedRoute requireRole="assessor">
+      <AssessorOverviewPage />
+    </ProtectedRoute>
   )
 }

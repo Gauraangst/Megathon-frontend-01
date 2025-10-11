@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import ProtectedRoute from '@/components/ProtectedRoute'
+import { useAuth } from '@/contexts/AuthContext'
+import { dbHelpers } from '@/lib/supabase'
 import { 
   Shield, 
   Search, 
@@ -34,64 +37,125 @@ import {
   ChevronRight,
   Upload
 } from 'lucide-react'
-import { claimsDB, ClaimData } from '@/services/claimsDatabase'
 
-// Transform ClaimData for assessor display
-const transformClaimForAssessor = (claim: ClaimData) => {
+// Helper function to format currency with "k" for thousands
+const formatCurrency = (amount: number | string) => {
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount
+  if (isNaN(num)) return '₹0'
+  
+  if (num >= 1000) {
+    return `₹${(num / 1000).toFixed(1)}k`
+  }
+  return `₹${num.toLocaleString()}`
+}
+// Transform Supabase claim data for assessor display
+const transformClaimForAssessor = (claim: any) => {
   const getEstimatedAmount = () => {
-    if (claim.aiAnalysis?.estimatedRepairCost) {
-      const match = claim.aiAnalysis.estimatedRepairCost.match(/₹([\d,]+)/)
+    if (claim.estimated_DAMAGE_cost) {
+      return claim.estimated_DAMAGE_cost
+    }
+    if (claim.ai_analysis_result?.estimated_cost) {
+      const costStr = claim.ai_analysis_result.estimated_cost.toString()
+      const match = costStr.match(/[\d,]+/)
       if (match) {
-        return parseInt(match[1].replace(/,/g, ''))
+        return parseInt(match[0].replace(/,/g, ''))
       }
     }
-    return Math.floor(Math.random() * 50000) + 10000
+    return 0
+  }
+
+  const getRiskLevel = () => {
+    if (claim.ai_analysis_result?.ai_generated_likelihood) {
+      const likelihood = parseFloat(claim.ai_analysis_result.ai_generated_likelihood)
+      if (likelihood > 0.7) return 'High'
+      if (likelihood > 0.4) return 'Medium'
+      return 'Low'
+    }
+    return 'low'
   }
 
   const getPriority = () => {
-    if (claim.aiAnalysis?.fraudRiskLevel === 'High') return 'High'
-    if (claim.aiAnalysis?.fraudRiskLevel === 'Medium') return 'Medium'
-    return 'Low'
+    const amount = getEstimatedAmount()
+    if (amount > 100000) return 'high'
+    if (amount > 50000) return 'medium'
+    return 'low'
+  }
+
+  const getStatusDisplay = () => {
+    switch (claim.status) {
+      case 'submitted': return 'pending_review'
+      case 'ai_review': return 'ai_review'
+      case 'assessor_review': return 'assessor_review'
+      case 'completed': return 'completed'
+      case 'rejected': return 'rejected'
+      default: return 'pending_review'
+    }
   }
 
   return {
-    id: claim.claimId,
-    referenceNumber: claim.referenceNumber,
-    title: `${claim.incidentDetails.situation} - ${claim.vehicleDetails.makeModel}`,
-    submittedDate: claim.dateSubmitted,
-    status: claim.status,
-    assignedAssessor: claim.assignedAssessor || 'Auto-assigned',
-    assessorId: 'ASS-001',
-    policyHolder: claim.userDetails.fullName,
-    authenticityScore: claim.aiAnalysis?.authenticityScore || Math.floor(Math.random() * 40) + 60,
-    damageSeverityScore: claim.aiAnalysis?.damageSeverityScore || Math.floor(Math.random() * 50) + 50,
+    id: claim.id,
+    claimNumber: claim.claim_number,
+    title: `${claim.claim_type} - ${claim.vehicle_make_model}`,
+    claimantName: claim.user?.full_name || 'Unknown',
+    claimantEmail: claim.user?.email || 'Unknown',
+    policyHolder: claim.user?.full_name || 'Unknown',
+    vehicleInfo: `${claim.vehicle_make_model} ${claim.vehicle_color ? `(${claim.vehicle_color})` : ''}`,
+    licensePlate: claim.vehicle_license_plate || 'N/A',
+    incidentType: claim.claim_type,
+    incidentLocation: claim.incident_location,
+    incidentDate: new Date(claim.incident_date).toLocaleDateString(),
+    submissionDate: new Date(claim.created_at).toLocaleDateString(),
+    submittedDate: new Date(claim.created_at).toLocaleDateString(),
+    status: getStatusDisplay(),
     estimatedAmount: getEstimatedAmount(),
-    riskLevel: claim.aiAnalysis?.fraudRiskLevel || 'Medium',
+    riskLevel: getRiskLevel(),
     priority: getPriority(),
-    vehicleInfo: `${claim.vehicleDetails.makeModel} (${claim.vehicleDetails.color})`,
-    location: claim.incidentDetails.location,
-    aiGeneratedLikelihood: claim.aiAnalysis?.aiGeneratedLikelihood || Math.random() * 0.3
+    description: claim.incident_description,
+    hasImages: claim.claim_images && claim.claim_images.length > 0,
+    imageCount: claim.claim_images?.length || 0,
+    assignedAssessor: claim.assigned_assessor?.full_name || null,
+    policyNumber: claim.policy_number,
+    authenticityScore: claim.ai_analysis_result?.confidence_score || 85,
+    damageSeverityScore: claim.ai_analysis_result?.damage_severity || 75,
+    aiAnalysisResult: claim.ai_analysis_result
   }
 }
 
-export default function AssessorClaimsPage() {
+function AssessorClaimsPage() {
+  const { user, userProfile } = useAuth()
   const searchParams = useSearchParams()
   const [selectedClaim, setSelectedClaim] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [isExporting, setIsExporting] = useState(false)
-  const [allClaims, setAllClaims] = useState<ClaimData[]>([])
+  const [allClaims, setAllClaims] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Load claims data
+  // Load claims from Supabase
   useEffect(() => {
-    const loadClaims = () => {
-      const claims = claimsDB.getAllClaims()
-      setAllClaims(claims)
+    const loadClaims = async () => {
+      try {
+        console.log('📊 ASSESSOR CLAIMS: Loading all claims...')
+        const { data: claimsData, error } = await dbHelpers.getAllClaims()
+        
+        if (error) {
+          console.error('❌ Error loading claims:', error)
+          return
+        }
+
+        console.log('✅ ASSESSOR CLAIMS: Loaded claims:', claimsData?.length || 0)
+        setAllClaims(claimsData || [])
+      } catch (err) {
+        console.error('💥 Exception loading claims:', err)
+      } finally {
+        setLoading(false)
+      }
     }
     
     loadClaims()
-    // Refresh claims every 5 seconds
-    const interval = setInterval(loadClaims, 5000)
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(loadClaims, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -469,14 +533,14 @@ export default function AssessorClaimsPage() {
                       </div>
                       <div className="flex items-center">
                         <DollarSign className="h-4 w-4 text-green-600 mr-1" />
-                        <span className="font-medium text-black">${claim.estimatedAmount.toLocaleString()}</span>
+                        <span className="font-medium text-black">{formatCurrency(claim.estimatedAmount)}</span>
                       </div>
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-3">
                     <Link
-                      href="/assessor/comprehensive"
+                      href={`/assessor-portal/claims/${claim.id}`}
                       className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
                     >
                       <Eye className="h-4 w-4 mr-1" />
@@ -554,5 +618,13 @@ export default function AssessorClaimsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AssessorClaimsPageWrapper() {
+  return (
+    <ProtectedRoute requireRole="assessor">
+      <AssessorClaimsPage />
+    </ProtectedRoute>
   )
 }

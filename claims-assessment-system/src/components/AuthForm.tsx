@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Eye, EyeOff, Mail, Lock, User, Shield } from 'lucide-react'
+import Link from 'next/link'
+import { User, Mail, Lock, Eye, EyeOff, Shield } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 interface AuthFormProps {
@@ -26,13 +27,26 @@ export default function AuthForm({ mode = 'signin', onSuccess }: AuthFormProps) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError(null)
-
     console.log('🚀 FORM DEBUG: Form submission started')
     console.log('📝 Form mode:', isSignUp ? 'SIGN UP' : 'SIGN IN')
     console.log('📧 Email:', formData.email)
     console.log('🔒 Password length:', formData.password.length)
+
+    // Basic validation
+    if (!formData.email || !formData.password) {
+      console.log('❌ FORM VALIDATION: Missing email or password')
+      setError('Please fill in all required fields')
+      return
+    }
+
+    if (formData.password.length < 6) {
+      console.log('❌ FORM VALIDATION: Password too short')
+      setError('Password must be at least 6 characters')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
 
     try {
       if (isSignUp) {
@@ -72,6 +86,7 @@ export default function AuthForm({ mode = 'signin', onSuccess }: AuthFormProps) 
           setError(error.message)
         } else {
           console.log('✅ Sign in successful, calling onSuccess')
+          console.log('🔄 Auth state should change now...')
           onSuccess?.()
         }
       }
@@ -228,23 +243,33 @@ export default function AuthForm({ mode = 'signin', onSuccess }: AuthFormProps) 
                 isSignUp ? 'Create Account' : 'Sign In'
               )}
             </button>
-          </div>
 
-          {/* Toggle Mode */}
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm text-blue-600 hover:text-blue-800"
-            >
-              {isSignUp 
-                ? 'Already have an account? Sign in' 
-                : "Don't have an account? Sign up"
-              }
-            </button>
+            {/* Login/Signup Toggle */}
+            <div className="text-center space-y-2">
+              <p className="text-sm text-gray-600">
+                {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+                <button
+                  type="button"
+                  onClick={() => setIsSignUp(!isSignUp)}
+                  className="font-medium text-blue-600 hover:text-blue-500"
+                >
+                  {isSignUp ? 'Sign in here' : 'Sign up here'}
+                </button>
+              </p>
+              
+              {/* Admin Registration Link */}
+              <div className="pt-2 border-t border-gray-200">
+                <p className="text-xs text-gray-500 mb-2">Debug Mode</p>
+                <Link 
+                  href="/admin/register"
+                  className="text-xs text-purple-600 hover:text-purple-500 font-medium"
+                >
+                  🔧 Register Admin Account (Debug)
+                </Link>
+              </div>
+            </div>
           </div>
         </form>
-
         {/* Demo Credentials */}
         <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mt-4">
           <h4 className="text-sm font-medium text-yellow-800 mb-2">Demo Credentials:</h4>

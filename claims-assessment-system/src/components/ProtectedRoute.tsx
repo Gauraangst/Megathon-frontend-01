@@ -17,8 +17,15 @@ export default function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { user, userProfile, loading } = useAuth()
 
+  console.log('🛡️ PROTECTED ROUTE: Checking access')
+  console.log('👤 User:', user?.id)
+  console.log('👤 UserProfile:', userProfile?.email, userProfile?.role)
+  console.log('⏳ Loading:', loading)
+  console.log('🔒 Required Role:', requireRole)
+
   // Show loading spinner while checking auth
   if (loading) {
+    console.log('⏳ PROTECTED ROUTE: Still loading, showing spinner')
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -31,11 +38,13 @@ export default function ProtectedRoute({
 
   // Show auth form if not authenticated
   if (!user) {
+    console.log('❌ PROTECTED ROUTE: No user, showing auth form')
     return fallback || <AuthForm />
   }
 
-  // Check role requirements
-  if (requireRole && userProfile?.role !== requireRole) {
+  // Check role requirements (admin can access everything)
+  if (requireRole && userProfile?.role !== requireRole && userProfile?.role !== 'admin') {
+    console.log('🚫 PROTECTED ROUTE: Role mismatch. Required:', requireRole, 'Actual:', userProfile?.role)
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto">
@@ -57,5 +66,6 @@ export default function ProtectedRoute({
     )
   }
 
+  console.log('✅ PROTECTED ROUTE: Access granted, rendering children')
   return <>{children}</>
 }

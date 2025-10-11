@@ -21,8 +21,9 @@ import {
   Car,
   X
 } from 'lucide-react'
-import StatusTimeline from '@/components/StatusTimeline'
 import { claimsDB, ClaimData } from '@/services/claimsDatabase'
+import { dbHelpers } from '@/lib/supabase'
+import StatusTimeline from '@/components/StatusTimeline'
 import ClaimSubmissionForm from '@/components/ClaimSubmissionForm'
 
 // Transform ClaimData to display format
@@ -64,13 +65,11 @@ const transformClaimForDisplay = (claim: ClaimData) => {
     priority: getPriority(),
     resolvedDate: claim.manualAssessment?.assessmentTimestamp ? 
       new Date(claim.manualAssessment.assessmentTimestamp).toISOString().split('T')[0] : undefined,
-    finalAmount: claim.manualAssessment?.recommendedClaimAmount ? 
-      parseInt(claim.manualAssessment.recommendedClaimAmount.replace(/[₹,]/g, '')) : undefined
   }
 }
 
 function ClaimantPortalPage() {
-  const { userProfile, signOut } = useAuth()
+  const { user, userProfile, signOut } = useAuth()
   const [activeTab, setActiveTab] = useState<'active' | 'resolved'>('active')
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState('date-desc')
@@ -78,21 +77,101 @@ function ClaimantPortalPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [showNewClaimForm, setShowNewClaimForm] = useState(false)
   const [userClaims, setUserClaims] = useState<ClaimData[]>([])
-  const [userEmail] = useState('user@example.com') // In real app, get from auth
+  const [loading, setLoading] = useState(true)
   const filterRef = useRef<HTMLDivElement>(null)
 
   // Load user claims on component mount
   useEffect(() => {
-    const loadClaims = () => {
-      const claims = claimsDB.getUserClaims(userEmail)
-      setUserClaims(claims)
+    console.log('🎯 CLAIMANT PORTAL: useEffect triggered')
+    console.log('👤 User:', user?.id)
+    console.log('👤 UserProfile:', userProfile?.email)
+    console.log('⏳ Loading state:', loading)
+
+    const loadClaims = async () => {
+      console.log('📊 CLAIMS: Starting loadClaims function')
+      
+      if (!user?.id) {
+        console.log('❌ CLAIMS: No user ID, setting loading to false')
+        setLoading(false)
+        return
+      }
+
+      try {
+        console.log('📊 CLAIMS: Loading claims for user:', user.id)
+        const { data: claims, error } = await dbHelpers.getUserClaims(user.id)
+        
+        if (error) {
+          console.error('❌ Error loading claims:', error)
+          return
+        }
+
+        console.log('✅ Loaded claims:', claims)
+        console.log('📊 Claims count:', claims?.length || 0)
+
+        // Handle empty claims case
+        if (!claims || claims.length === 0) {
+          console.log('📝 No claims found for user')
+          setUserClaims([])
+          setLoading(false)
+          return
+        }
+
+        // Transform Supabase claims to legacy format
+        const transformedClaims = claims?.map(claim => ({
+          claimId: claim.claim_number,
+          referenceNumber: claim.claim_number,
+          dateSubmitted: claim.created_at,
+          status: claim.status === 'submitted' ? 'Pending Review' : 
+                 claim.status === 'ai_review' ? 'AI Review' :
+                 claim.status === 'assessor_review' ? 'Under Assessment' :
+                 claim.status === 'completed' ? 'Approved' : 'Pending Review',
+          userDetails: {
+            fullName: userProfile?.full_name || 'Unknown',
+            email: userProfile?.email || user.email || '',
+            drivingLicense: userProfile?.driving_license || '',
+            policyNumber: claim.policy_number
+          },
+          vehicleDetails: {
+            makeModel: claim.vehicle_make_model,
+            color: claim.vehicle_color || '',
+            licensePlate: claim.vehicle_license_plate || ''
+          },
+          incidentDetails: {
+            dateTime: `${claim.incident_date}T${claim.incident_time || '00:00'}:00Z`,
+            location: claim.incident_location,
+            situation: claim.claim_type,
+            otherPartyInvolved: claim.other_party_involved || false,
+            otherPartyDetails: claim.other_party_details || '',
+            injuries: '',
+            policeReport: '',
+            witnessDetails: '',
+            description: claim.incident_description
+          },
+          visualEvidence: {
+            images: []
+          },
+          uploadedImages: [],
+          aiAnalysis: claim.ai_analysis_result ? {
+            estimatedRepairCost: claim.ai_analysis_result.estimated_cost ? `₹${claim.ai_analysis_result.estimated_cost}` : `₹${claim.estimated_DAMAGE_cost || 0}`,
+            fraudRiskLevel: 'low' as const,
+            authenticityScore: 85,
+            damageSeverityScore: 75,
+            aiGeneratedLikelihood: Number(claim.ai_analysis_result.ai_generated_likelihood) || 0.1,
+            analysisTimestamp: String(claim.updated_at || claim.created_at),
+            anomalies: [],
+            reasoning: String(claim.ai_analysis_result.confidence_reasoning || 'AI analysis completed successfully')
+          } : undefined
+        })) || []
+        setUserClaims(transformedClaims as ClaimData[])
+      } catch (err) {
+        console.error('💥 Exception loading claims:', err)
+      } finally {
+        setLoading(false)
+      }
     }
     
     loadClaims()
-    // Set up interval to refresh claims data
-    const interval = setInterval(loadClaims, 5000)
-    return () => clearInterval(interval)
-  }, [userEmail])
+  }, [user?.id, userProfile])
 
   // Handle new claim submission
   const handleClaimSubmitted = (newClaim: ClaimData) => {
@@ -271,9 +350,9 @@ function ClaimantPortalPage() {
       case 'title-desc':
         return sorted.sort((a, b) => b.title.localeCompare(a.title))
       case 'amount-desc':
-        return sorted.sort((a, b) => (b.finalAmount || 0) - (a.finalAmount || 0))
+        return sorted.sort((a, b) => (b.estimatedAmount || 0) - (a.estimatedAmount || 0))
       case 'amount-asc':
-        return sorted.sort((a, b) => (a.finalAmount || 0) - (b.finalAmount || 0))
+        return sorted.sort((a, b) => (a.estimatedAmount || 0) - (b.estimatedAmount || 0))
       default:
         return sorted
     }
@@ -559,16 +638,47 @@ function ClaimantPortalPage() {
               <div className="p-4">
                 <ClaimSubmissionForm 
                   onClaimSubmitted={handleClaimSubmitted}
-                  userEmail={userEmail}
                 />
               </div>
             </div>
           </div>
         )}
 
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading your claims...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && userClaims.length === 0 && (
+          <div className="text-center py-12">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
+              <Car className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Claims Yet</h3>
+              <p className="text-gray-600 mb-6">
+                You haven't submitted any vehicle insurance claims yet. 
+                Get started by filing your first claim.
+              </p>
+              <button
+                onClick={() => setShowNewClaimForm(true)}
+                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Submit Your First Claim
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Claims Grid */}
-        <div className="grid gap-6">
-          {activeTab === 'active' && getFilteredAndSortedActiveClaims().map((claim) => (
+        {!loading && userClaims.length > 0 && (
+          <div className="grid gap-6">
+            {activeTab === 'active' && getFilteredAndSortedActiveClaims().map((claim) => (
             <div key={claim.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
@@ -648,7 +758,7 @@ function ClaimantPortalPage() {
                     </span>
                     <span className="flex items-center">
                       <DollarSign className="h-4 w-4 mr-1" />
-                      ${(claim.finalAmount || 0).toLocaleString()}
+                      ₹{(claim.estimatedAmount || 0).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex items-center space-x-4 text-sm text-gray-600 mb-4">
@@ -682,10 +792,45 @@ function ClaimantPortalPage() {
               </div>
             </div>
           ))}
-        </div>
 
-        {/* Empty State */}
-        {((activeTab === 'active' && getFilteredAndSortedActiveClaims().length === 0) || 
+            {activeTab === 'resolved' && getFilteredAndSortedResolvedClaims().map((claim) => (
+              <div key={claim.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900">{claim.title}</h3>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(claim.status)}`}>
+                        {claim.status.replace('_', ' ').toUpperCase()}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">{claim.vehicleInfo}</p>
+                    <p className="text-sm text-gray-500">{claim.location}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-semibold text-green-600">₹{claim.estimatedAmount?.toLocaleString() || 'N/A'}</p>
+                    <p className="text-sm text-gray-500">Final Amount</p>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+                  <span className="text-sm text-gray-500">
+                    Resolved on {new Date(claim.resolvedDate || '').toLocaleDateString()}
+                  </span>
+                  <div className="flex space-x-3">
+                    <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                      View Details
+                    </button>
+                    <button className="text-gray-600 hover:text-gray-800 text-sm font-medium">
+                      Download Settlement
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty State for filtered results */}
+        {!loading && userClaims.length > 0 && ((activeTab === 'active' && getFilteredAndSortedActiveClaims().length === 0) || 
           (activeTab === 'resolved' && getFilteredAndSortedResolvedClaims().length === 0)) && (
           <div className="text-center py-12">
             <FileText className="mx-auto h-12 w-12 text-gray-400" />

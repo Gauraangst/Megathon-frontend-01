@@ -105,30 +105,64 @@ export const authHelpers = {
     })
     
     console.log('📊 Supabase signup response:')
-    console.log('✅ Data:', JSON.stringify(data, null, 2))
     console.log('❌ Error:', error)
     
     return { data, error }
   },
 
-  // Sign in user
+  // Sign in with email and password
   async signIn(email: string, password: string) {
     console.log('🔧 SUPABASE: Attempting sign in')
-    console.log('📧 Email:', email)
+    
+    // Hardcoded admin bypass for demo
+    if (email === 'admin@chubb.com' && password === 'pass@123') {
+      console.log('🔑 ADMIN BYPASS: Using hardcoded admin credentials')
+      
+      // Create a proper mock session with JWT-like structure
+      const mockUser = {
+        id: 'admin-mock-id',
+        email: 'admin@chubb.com',
+        user_metadata: { full_name: 'System Administrator' },
+        aud: 'authenticated',
+        role: 'authenticated',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+      
+      const mockSession = {
+        access_token: `mock-admin-token-${Date.now()}`,
+        refresh_token: `mock-refresh-token-${Date.now()}`,
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        token_type: 'bearer',
+        user: mockUser
+      }
+      
+      // Store in localStorage for persistence
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mock_admin_session', JSON.stringify(mockSession))
+        localStorage.setItem('supabase.auth.token', JSON.stringify(mockSession))
+      }
+      
+      return { 
+        data: { 
+          user: mockUser, 
+          session: mockSession 
+        }, 
+        error: null 
+      }
+    }
     
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     })
-    
     console.log('📊 Supabase signin response:')
     console.log('✅ Data:', JSON.stringify(data, null, 2))
     console.log('❌ Error:', error)
     
     return { data, error }
   },
-
-  // Sign out user
   async signOut() {
     const { error } = await supabase.auth.signOut()
     return { error }
@@ -142,9 +176,19 @@ export const authHelpers = {
 
   // Get current session
   async getCurrentSession() {
+    // Check for mock admin session first
+    if (typeof window !== 'undefined') {
+      const mockSession = localStorage.getItem('mock_admin_session')
+      if (mockSession) {
+        console.log('🔑 AUTH: Found mock admin session')
+        const session = JSON.parse(mockSession)
+        return { session, error: null }
+      }
+    }
+    
     const { data: { session }, error } = await supabase.auth.getSession()
     return { session, error }
-  }
+  },
 }
 
 // Database helper functions
@@ -186,8 +230,8 @@ export const dbHelpers = {
       .from('claims')
       .select(`
         *,
-        user:users(*),
-        assigned_assessor:users(*),
+        user:users!claims_user_id_fkey(*),
+        assigned_assessor:users!claims_assigned_assessor_id_fkey(*),
         claim_images(*)
       `)
       .eq('user_id', userId)
@@ -201,8 +245,8 @@ export const dbHelpers = {
       .from('claims')
       .select(`
         *,
-        user:users(*),
-        assigned_assessor:users(*),
+        user:users!claims_user_id_fkey(*),
+        assigned_assessor:users!claims_assigned_assessor_id_fkey(*),
         claim_images(*)
       `)
       .order('created_at', { ascending: false })
@@ -215,8 +259,8 @@ export const dbHelpers = {
       .from('claims')
       .select(`
         *,
-        user:users(*),
-        assigned_assessor:users(*),
+        user:users!claims_user_id_fkey(*),
+        assigned_assessor:users!claims_assigned_assessor_id_fkey(*),
         claim_images(*)
       `)
       .eq('id', claimId)
@@ -236,12 +280,22 @@ export const dbHelpers = {
   },
 
   // Add claim image
-  async addClaimImage(imageData: Partial<ClaimImage>) {
+  async addClaimImage(imageData: any) {
     const { data, error } = await supabase
       .from('claim_images')
       .insert(imageData)
       .select()
       .single()
+    return { data, error }
+  },
+
+  // Get claim images
+  async getClaimImages(claimId: string) {
+    const { data, error } = await supabase
+      .from('claim_images')
+      .select('*')
+      .eq('claim_id', claimId)
+      .order('uploaded_at', { ascending: true })
     return { data, error }
   },
 

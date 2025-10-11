@@ -24,14 +24,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
-      const { session } = await authHelpers.getCurrentSession()
+      console.log('🚀 AUTH: Getting initial session...')
+      
+      // Check for mock admin session first
+      if (typeof window !== 'undefined') {
+        const mockSession = localStorage.getItem('mock_admin_session')
+        if (mockSession) {
+          console.log('🔑 AUTH: Found mock admin session')
+          const session = JSON.parse(mockSession)
+          
+          // Check if session is still valid (not expired)
+          const now = Math.floor(Date.now() / 1000)
+          if (session.expires_at && session.expires_at > now) {
+            console.log('🔑 AUTH: Mock session is valid')
+            setUser(session.user)
+            setUserProfile({
+              id: session.user.id,
+              email: session.user.email,
+              full_name: 'System Administrator',
+              role: 'admin',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            setLoading(false)
+            return
+          } else {
+            console.log('🔑 AUTH: Mock session expired, clearing')
+            localStorage.removeItem('mock_admin_session')
+            localStorage.removeItem('supabase.auth.token')
+          }
+        }
+      }
+      
+      const { session, error } = await authHelpers.getCurrentSession()
+      console.log('🚀 AUTH: Initial session result:', session?.user?.id, error)
       setUser(session?.user ?? null)
       
       if (session?.user) {
-        const { data: profile } = await dbHelpers.getUserProfile(session.user.id)
+        console.log('👤 AUTH: Getting initial user profile for:', session.user.id)
+        const { data: profile, error: profileError } = await dbHelpers.getUserProfile(session.user.id)
+        console.log('👤 AUTH: Initial profile result:', profile, profileError)
         setUserProfile(profile)
       }
       
+      console.log('✅ AUTH: Initial loading complete')
       setLoading(false)
     }
 
@@ -40,15 +76,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('🔄 AUTH STATE CHANGE:', event, session?.user?.id)
+        
+        // Don't override mock admin session
+        if (typeof window !== 'undefined') {
+          const mockSession = localStorage.getItem('mock_admin_session')
+          if (mockSession) {
+            console.log('🔑 AUTH: Ignoring auth change, mock session active')
+            return
+          }
+        }
+        
         setUser(session?.user ?? null)
         
         if (session?.user) {
-          const { data: profile } = await dbHelpers.getUserProfile(session.user.id)
+          console.log('👤 Getting user profile for:', session.user.id)
+          const { data: profile, error } = await dbHelpers.getUserProfile(session.user.id)
+          console.log('👤 User profile result:', profile, error)
           setUserProfile(profile)
         } else {
+          console.log('❌ No session user, clearing profile')
           setUserProfile(null)
         }
         
+        console.log('✅ Auth loading complete, setting loading to false')
         setLoading(false)
       }
     )
@@ -106,25 +157,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       return { error }
     } catch (err) {
-      console.error('💥 Sign up exception:', err)
       return { error: err }
     }
   }
 
   const signOut = async () => {
+    // Clear mock admin session if it exists
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('mock_admin_session')
+    }
+    
     await authHelpers.signOut()
+    
+    // Reset state
     setUser(null)
     setUserProfile(null)
   }
 
   const updateProfile = async (updates: Partial<User>) => {
-    if (!user) return { error: 'No user logged in' }
+    if (!user?.id) return { error: 'No user logged in' }
     
     const { data, error } = await dbHelpers.updateUserProfile(user.id, updates)
     if (data) {
       setUserProfile(data)
     }
-    return { error }
+    return { data, error }
   }
 
   const value = {
