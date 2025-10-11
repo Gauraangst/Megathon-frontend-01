@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { Upload, Camera, Mic, MicOff, User, Car, MapPin, Clock, FileText, AlertTriangle } from 'lucide-react'
 import { claimsDB, ClaimData } from '../services/claimsDatabase'
+import ClaimantImageAnalysis from './ClaimantImageAnalysis'
 
 interface ClaimSubmissionFormProps {
   onClaimSubmitted: (claim: ClaimData) => void
@@ -14,6 +15,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted, userEmail = "use
   const [isRecording, setIsRecording] = useState(false)
   const [uploadedImages, setUploadedImages] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null)
 
   // Form data state
   const [formData, setFormData] = useState({
@@ -170,7 +172,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted, userEmail = "use
       case 3:
         return formData.incidentDate && formData.incidentTime && formData.location && formData.situation
       case 4:
-        return uploadedImages.length > 0
+        return aiAnalysisResult !== null // AI analysis must be completed
       case 5:
         return formData.description.trim().length > 10
       default:
@@ -383,53 +385,25 @@ export default function ClaimSubmissionForm({ onClaimSubmitted, userEmail = "use
           </div>
         )}
 
-        {/* Step 4: Visual Evidence */}
+        {/* Step 4: AI Damage Analysis */}
         {currentStep === 4 && (
           <div className="space-y-6">
             <div className="flex items-center mb-4">
               <Camera className="h-6 w-6 text-blue-600 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">Upload Photos</h3>
+              <h3 className="text-lg font-semibold text-gray-900">AI Damage Analysis</h3>
             </div>
             
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-4">Upload photos of the damage and incident scene</p>
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-                id="image-upload"
-              />
-              <label
-                htmlFor="image-upload"
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer"
-              >
-                Choose Files
-              </label>
-            </div>
-            
-            {uploadedImages.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {uploadedImages.map((file, index) => (
-                  <div key={index} className="relative">
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt={`Upload ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
-                    <button
-                      onClick={() => removeImage(index)}
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
-                    >
-                      ×
-                    </button>
-                    <p className="text-xs text-gray-600 mt-1 truncate">{file.name}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+            <ClaimantImageAnalysis 
+              onAnalysisComplete={(result) => {
+                setAiAnalysisResult(result)
+                // Simulate adding the analyzed image to uploaded images
+                if (!uploadedImages.length) {
+                  // Create a mock file object for the analyzed image
+                  const mockFile = new File([''], result.filename, { type: 'image/jpeg' })
+                  setUploadedImages([mockFile])
+                }
+              }}
+            />
           </div>
         )}
 

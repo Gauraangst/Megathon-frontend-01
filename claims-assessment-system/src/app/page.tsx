@@ -3,7 +3,7 @@
 import Link from "next/link"
 import React, { useState, useEffect } from "react"
 import { Shield, Brain, Eye, TrendingUp, CheckCircle, Users, Ship, Building, Music, Flame, Trophy, Zap, Star, Globe, Diamond, Skull } from "lucide-react"
-import QuickCarAnalysis from '@/components/QuickCarAnalysis'
+import ClaimantImageAnalysis from '@/components/ClaimantImageAnalysis'
 import FloatingDebugButton from '@/components/FloatingDebugButton'
 
 export default function Home() {
@@ -208,7 +208,7 @@ export default function Home() {
       {/* DEBUG: Quick Car Analysis */}
       <div className="py-16 bg-gradient-to-br from-red-50 to-orange-50 relative">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <QuickCarAnalysis />
+          <ClaimantImageAnalysis />
         </div>
       </div>
 

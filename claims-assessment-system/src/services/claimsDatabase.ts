@@ -138,7 +138,7 @@ class ClaimsDatabase {
     const claimIds = this.userClaims.get(email) || []
     return claimIds
       .map(id => this.claims.get(id))
-      .filter(claim => claim !== undefined) as ClaimData[]
+      .filter((claim): claim is ClaimData => claim !== undefined)
       .sort((a, b) => new Date(b.dateSubmitted).getTime() - new Date(a.dateSubmitted).getTime())
   }
 
@@ -166,9 +166,9 @@ class ClaimsDatabase {
   }
 
   // Add manual assessment
-  addManualAssessment(claimId: string, assessment: ClaimData['manualAssessment']): boolean {
+  addManualAssessment(claimId: string, assessment: NonNullable<ClaimData['manualAssessment']>): boolean {
     const claim = this.claims.get(claimId)
-    if (claim) {
+    if (claim && assessment) {
       claim.manualAssessment = assessment
       claim.status = assessment.finalDecision === 'Approve' ? 'Approved' : 
                    assessment.finalDecision === 'Reject' ? 'Rejected' : 'Under Assessment'

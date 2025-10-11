@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Bug, X, Car, Zap } from 'lucide-react'
-import QuickCarAnalysis from './QuickCarAnalysis'
+import ClaimantImageAnalysis from './ClaimantImageAnalysis'
 
 export default function FloatingDebugButton() {
   const [isOpen, setIsOpen] = useState(false)
@@ -50,7 +50,7 @@ export default function FloatingDebugButton() {
 
               {/* Content */}
               <div className="bg-white px-6 py-6">
-                <QuickCarAnalysis />
+                <ClaimantImageAnalysis />
               </div>
 
               {/* Footer */}
