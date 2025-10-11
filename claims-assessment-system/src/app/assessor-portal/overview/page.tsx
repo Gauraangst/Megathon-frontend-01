@@ -1,0 +1,335 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { 
+  Shield, 
+  TrendingUp, 
+  AlertTriangle, 
+  CheckCircle, 
+  Clock,
+  FileText,
+  DollarSign,
+  Users,
+  BarChart3,
+  PieChart,
+  Activity,
+  ArrowRight,
+  Calendar,
+  Filter
+} from 'lucide-react'
+
+// Mock data for dashboard analytics
+const dashboardStats = {
+  totalClaims: 1247,
+  pendingReview: 89,
+  underAssessment: 156,
+  completed: 1002,
+  flaggedForFraud: 23,
+  totalValue: 12450000,
+  avgProcessingTime: 2.3,
+  fraudDetectionRate: 98.2
+}
+
+const claimsByStatus = [
+  { name: 'Completed', value: 1002, color: '#10B981' },
+  { name: 'Under Assessment', value: 156, color: '#3B82F6' },
+  { name: 'Pending Review', value: 89, color: '#F59E0B' },
+  { name: 'Flagged', value: 23, color: '#EF4444' }
+]
+
+const monthlyTrends = [
+  { month: 'Jan', claims: 98, fraudDetected: 12, avgAmount: 8500 },
+  { month: 'Feb', claims: 112, fraudDetected: 8, avgAmount: 9200 },
+  { month: 'Mar', claims: 89, fraudDetected: 15, avgAmount: 7800 },
+  { month: 'Apr', claims: 134, fraudDetected: 18, avgAmount: 10100 },
+  { month: 'May', claims: 156, fraudDetected: 22, avgAmount: 11300 },
+  { month: 'Jun', claims: 143, fraudDetected: 19, avgAmount: 9800 }
+]
+
+const recentHighPriorityClaims = [
+  { id: 'CLM-1245', type: 'Vehicle Theft', amount: 45000, riskScore: 23, assignee: 'Jane Smith' },
+  { id: 'CLM-1246', type: 'Property Fire', amount: 89000, riskScore: 15, assignee: 'Mike Johnson' },
+  { id: 'CLM-1247', type: 'Personal Injury', amount: 125000, riskScore: 67, assignee: 'Sarah Davis' }
+]
+
+export default function AssessorOverviewPage() {
+  const [timeFilter, setTimeFilter] = useState('30d')
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Navigation */}
+      <nav className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center">
+              <Link href="/" className="flex items-center text-gray-600 hover:text-gray-900 mr-4">
+                <Shield className="h-8 w-8 text-blue-600" />
+                <span className="ml-2 text-xl font-bold text-gray-900">Chubb</span>
+              </Link>
+              <span className="ml-4 px-3 py-1 bg-purple-100 text-purple-800 text-sm font-medium rounded-full">
+                Assessor Dashboard
+              </span>
+            </div>
+            <div className="flex items-center space-x-6">
+              <Link
+                href="/assessor-portal/overview"
+                className="text-blue-600 hover:text-blue-800 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-blue-600"
+              >
+                Overview
+              </Link>
+              <Link
+                href="/assessor-portal/claims"
+                className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium"
+              >
+                Claims Assessment
+              </Link>
+              <div className="flex items-center space-x-2">
+                <div className="h-8 w-8 bg-purple-600 rounded-full flex items-center justify-center">
+                  <Users className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-sm font-medium text-gray-700">Jane Assessor</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Claims Assessment Overview</h1>
+            <p className="mt-2 text-gray-600">Monitor claims performance and fraud detection metrics</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <select
+              value={timeFilter}
+              onChange={(e) => setTimeFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-black focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+              <option value="1y">Last year</option>
+            </select>
+            <button className="p-2 border border-gray-300 rounded-md hover:bg-gray-50">
+              <Filter className="h-5 w-5 text-gray-400" />
+            </button>
+          </div>
+        </div>
+
+        {/* Key Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <FileText className="h-8 w-8 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Total Claims</p>
+                <p className="text-2xl font-semibold text-gray-900">{dashboardStats.totalClaims.toLocaleString()}</p>
+                <p className="text-sm text-green-600">↑ 12% from last month</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <Clock className="h-8 w-8 text-yellow-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Pending Review</p>
+                <p className="text-2xl font-semibold text-gray-900">{dashboardStats.pendingReview}</p>
+                <p className="text-sm text-yellow-600">Requires attention</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <AlertTriangle className="h-8 w-8 text-red-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Fraud Detected</p>
+                <p className="text-2xl font-semibold text-gray-900">{dashboardStats.flaggedForFraud}</p>
+                <p className="text-sm text-red-600">High priority</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <TrendingUp className="h-8 w-8 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Detection Rate</p>
+                <p className="text-2xl font-semibold text-gray-900">{dashboardStats.fraudDetectionRate}%</p>
+                <p className="text-sm text-green-600">↑ 2.1% accuracy</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          {/* Claims Status Pie Chart */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Claims by Status</h3>
+              <PieChart className="h-5 w-5 text-gray-400" />
+            </div>
+            
+            {/* Simple visual representation of pie chart */}
+            <div className="space-y-3">
+              {claimsByStatus.map((item, index) => (
+                <div key={index} className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div 
+                      className="w-4 h-4 rounded-full mr-3"
+                      style={{ backgroundColor: item.color }}
+                    ></div>
+                    <span className="text-sm text-gray-700">{item.name}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-semibold text-gray-900">{item.value}</span>
+                    <span className="text-xs text-gray-500 ml-1">
+                      ({((item.value / dashboardStats.totalClaims) * 100).toFixed(1)}%)
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Monthly Trends Bar Chart */}
+          <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Monthly Claims Trends</h3>
+              <BarChart3 className="h-5 w-5 text-gray-400" />
+            </div>
+            
+            {/* Simple bar chart representation */}
+            <div className="space-y-4">
+              <div className="flex justify-between text-xs text-black mb-2">
+                <span>Claims Volume</span>
+                <span>Fraud Detected</span>
+              </div>
+              {monthlyTrends.map((month, index) => (
+                <div key={index} className="flex items-center space-x-4">
+                  <div className="w-8 text-xs text-black">{month.month}</div>
+                  <div className="flex-1 flex items-center space-x-2">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full" 
+                        style={{ width: `${(month.claims / 200) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-xs text-black w-8">{month.claims}</span>
+                  </div>
+                  <div className="flex-1 flex items-center space-x-2">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-red-600 h-2 rounded-full" 
+                        style={{ width: `${(month.fraudDetected / 30) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-xs text-black w-8">{month.fraudDetected}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Performance Metrics */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Processing Performance</h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Average Processing Time</span>
+                <span className="text-lg font-semibold text-gray-900">{dashboardStats.avgProcessingTime} days</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Total Claims Value</span>
+                <span className="text-lg font-semibold text-gray-900">${(dashboardStats.totalValue / 1000000).toFixed(1)}M</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">AI Accuracy Rate</span>
+                <span className="text-lg font-semibold text-green-600">{dashboardStats.fraudDetectionRate}%</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">High Priority Claims</h3>
+              <Link 
+                href="/assessor-portal/claims"
+                className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
+              >
+                View All <ArrowRight className="h-4 w-4 ml-1" />
+              </Link>
+            </div>
+            <div className="space-y-3">
+              {recentHighPriorityClaims.map((claim, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{claim.id}</p>
+                    <p className="text-xs text-gray-500">{claim.type} • ${claim.amount.toLocaleString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                      claim.riskScore > 50 ? 'bg-red-100 text-red-800' : 
+                      claim.riskScore > 25 ? 'bg-yellow-100 text-yellow-800' : 
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      Risk: {claim.riskScore}%
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{claim.assignee}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Link
+              href="/assessor-portal/claims"
+              className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <FileText className="h-8 w-8 text-blue-600 mr-3" />
+              <div>
+                <p className="font-medium text-gray-900">Review Claims</p>
+                <p className="text-sm text-gray-500">{dashboardStats.pendingReview} pending review</p>
+              </div>
+            </Link>
+            
+            <button className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              <AlertTriangle className="h-8 w-8 text-red-600 mr-3" />
+              <div>
+                <p className="font-medium text-gray-900">Fraud Alerts</p>
+                <p className="text-sm text-gray-500">{dashboardStats.flaggedForFraud} flagged claims</p>
+              </div>
+            </button>
+            
+            <button className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              <Activity className="h-8 w-8 text-green-600 mr-3" />
+              <div>
+                <p className="font-medium text-gray-900">Generate Report</p>
+                <p className="text-sm text-gray-500">Export analytics</p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
