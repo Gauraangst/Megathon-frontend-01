@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Upload, Car, Zap, Loader2, AlertCircle, CheckCircle, IndianRupee, Brain, Wrench, Calculator, TrendingUp, Target } from 'lucide-react'
-import { apiService, getRiskLevel, type AIAnalysisResult, type DamageEstimate } from '@/lib/apiService'
+import { apiService, getRiskLevel, type AIAnalysisResult, type DamageEstimate, type AIDetectionResult } from '@/lib/apiService'
 
 interface CarAnalysisResult {
   image_analysis: AIAnalysisResult
   damage_estimate: DamageEstimate
+  ai_detection: AIDetectionResult | null
   repair_cost_inr: string
   risk_assessment: {
     level: string
@@ -22,11 +23,22 @@ export default function QuickCarAnalysis() {
   const [result, setResult] = useState<CarAnalysisResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showDebug, setShowDebug] = useState(false)
+  const [isComprehensiveAnalysis, setIsComprehensiveAnalysis] = useState(false)
+  const [endpointStatus, setEndpointStatus] = useState<{exists: boolean, error?: string} | null>(null)
+
+  // Test endpoint availability on component mount
+  useEffect(() => {
+    const testEndpoint = async () => {
+      const status = await apiService.testCheckAIEndpoint()
+      setEndpointStatus(status)
+      console.log('Check AI endpoint status:', status)
+    }
+    testEndpoint()
+  }, [])
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
-
     setIsAnalyzing(true)
     setError(null)
     setResult(null)
@@ -36,7 +48,7 @@ export default function QuickCarAnalysis() {
       const comprehensiveResult = await apiService.getComprehensiveAnalysis(file)
       
       if (comprehensiveResult.success && comprehensiveResult.data) {
-        const { analysis, damage } = comprehensiveResult.data
+        const { analysis, damage, ai_detection } = comprehensiveResult.data
         const riskInfo = getRiskLevel(analysis.ai_generated_likelihood)
         
         // Extract repair cost from damage estimate
@@ -46,6 +58,7 @@ export default function QuickCarAnalysis() {
         const analysisResult: CarAnalysisResult = {
           image_analysis: analysis,
           damage_estimate: damage,
+          ai_detection: ai_detection,
           repair_cost_inr: repairCost,
           risk_assessment: riskInfo,
           timestamp: new Date().toISOString(),
@@ -239,7 +252,7 @@ export default function QuickCarAnalysis() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="text-center">
                 <div className="flex items-center justify-center mb-2">
                   <Brain className="h-5 w-5 text-blue-600 mr-1" />
@@ -247,6 +260,23 @@ export default function QuickCarAnalysis() {
                 </div>
                 <div className={`px-3 py-1 rounded-full text-sm font-medium ${result.risk_assessment.color}`}>
                   {Math.round(result.image_analysis.ai_generated_likelihood * 100)}% - {result.risk_assessment.level}
+                </div>
+              </div>
+
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Zap className="h-5 w-5 text-purple-600 mr-1" />
+                  <span className="text-sm font-medium text-gray-700">AI Detection</span>
+                </div>
+                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  result.image_analysis.ai_generated_likelihood > 0.5
+                    ? 'bg-red-100 text-red-800' 
+                    : 'bg-green-100 text-green-800'
+                }`}>
+                  {result.image_analysis.ai_generated_likelihood > 0.5 ? 'AI Generated' : 'Authentic'}
+                  <span className="ml-1 text-xs">
+                    ({Math.round(result.image_analysis.ai_generated_likelihood * 100)}%)
+                  </span>
                 </div>
               </div>
 
@@ -359,6 +389,68 @@ export default function QuickCarAnalysis() {
                 <p className="text-gray-900 bg-white p-3 rounded border text-sm">
                   {result.image_analysis.description}
                 </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  AI Detection Analysis
+                </label>
+                <div className="bg-white p-3 rounded border text-sm space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">Detection Result:</span>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      result.image_analysis.ai_generated_likelihood > 0.5
+                        ? 'bg-red-100 text-red-800' 
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {result.image_analysis.ai_generated_likelihood > 0.5 ? 'Likely AI Generated' : 'Likely Authentic'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">AI Likelihood Score:</span>
+                    <span className={`font-semibold ${
+                      result.image_analysis.ai_generated_likelihood > 0.7 ? 'text-red-600' :
+                      result.image_analysis.ai_generated_likelihood > 0.4 ? 'text-yellow-600' : 'text-green-600'
+                    }`}>
+                      {Math.round(result.image_analysis.ai_generated_likelihood * 100)}%
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">Risk Level:</span>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${result.risk_assessment.color}`}>
+                      {result.risk_assessment.level}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium block mb-1">Analysis Reasoning:</span>
+                    <p className="text-gray-700 text-xs">
+                      {result.image_analysis.confidence_reasoning || 'No detailed reasoning available'}
+                    </p>
+                  </div>
+                  
+                  {/* Additional AI Detection from /check_ai endpoint if available */}
+                  {result.ai_detection?.parsed_analysis && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <span className="font-medium block mb-1 text-purple-700">Secondary AI Detection:</span>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs">Endpoint Result:</span>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          result.ai_detection.parsed_analysis.is_ai_generated 
+                            ? 'bg-purple-100 text-purple-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {result.ai_detection.parsed_analysis.is_ai_generated ? 'AI Generated' : 'Authentic'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs">Confidence:</span>
+                        <span className="text-xs text-gray-600">
+                          {Math.round(result.ai_detection.parsed_analysis.confidence_score * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
