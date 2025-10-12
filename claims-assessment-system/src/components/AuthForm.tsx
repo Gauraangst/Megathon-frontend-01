@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { User, Mail, Lock, Eye, EyeOff, Shield } from 'lucide-react'
+import Logo from '@/components/Logo'
 import { useAuth } from '../contexts/AuthContext'
 
 interface AuthFormProps {
@@ -111,7 +112,7 @@ export default function AuthForm({ mode = 'signin', onSuccess }: AuthFormProps) 
         <div className="text-center">
           <div className="flex justify-center">
             <div className="bg-blue-600 p-3 rounded-full">
-              <Shield className="h-8 w-8 text-white" />
+              <Logo width={32} height={32} className="h-8 w-8" />
             </div>
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">

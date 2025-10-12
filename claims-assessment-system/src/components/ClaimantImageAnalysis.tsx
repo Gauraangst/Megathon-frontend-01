@@ -140,6 +140,16 @@ export default function ClaimantImageAnalysis({ onAnalysisComplete }: ClaimantIm
     if (totalMatch) {
       const range = totalMatch[1].trim()
       const costs = range.match(/₹([\d,]+)/g) || []
+      if (costs.length >= 2) {
+        const minValue = parseInt(costs[0].replace(/[₹,]/g, ''))
+        const maxValue = parseInt(costs[1].replace(/[₹,]/g, ''))
+        const averageValue = Math.round((minValue + maxValue) / 2)
+        return {
+          min: costs[0],
+          max: costs[1],
+          typical: `₹${averageValue.toLocaleString()}`
+        }
+      }
       return {
         min: costs[0] || '₹25,000',
         max: costs[1] || '₹45,000',
@@ -149,11 +159,23 @@ export default function ClaimantImageAnalysis({ onAnalysisComplete }: ClaimantIm
 
     // Fallback to any cost mentioned
     const costMatch = estimate.match(/₹([\d,]+)/g)
-    if (costMatch && costMatch.length > 0) {
+    if (costMatch && costMatch.length >= 2) {
+      const minValue = parseInt(costMatch[0].replace(/[₹,]/g, ''))
+      const maxValue = parseInt(costMatch[costMatch.length - 1].replace(/[₹,]/g, ''))
+      const averageValue = Math.round((minValue + maxValue) / 2)
       return {
         min: costMatch[0],
         max: costMatch[costMatch.length - 1],
-        typical: costMatch[Math.floor(costMatch.length / 2)] || costMatch[0]
+        typical: `₹${averageValue.toLocaleString()}`
+      }
+    }
+
+    // If only one cost found, use it as typical
+    if (costMatch && costMatch.length === 1) {
+      return {
+        min: costMatch[0],
+        max: costMatch[0],
+        typical: costMatch[0]
       }
     }
 

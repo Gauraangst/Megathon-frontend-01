@@ -19,6 +19,7 @@ import {
   Phone,
   Mail
 } from 'lucide-react'
+import Logo from '@/components/Logo'
 
 interface FormData {
   // User Details
@@ -727,7 +728,7 @@ export default function NewClaimPage() {
               </Link>
             </div>
             <div className="flex items-center">
-              <Shield className="h-8 w-8 text-blue-600" />
+              <Logo width={32} height={32} className="h-8 w-8" />
               <span className="ml-2 text-xl font-bold text-gray-900">Chubb</span>
             </div>
           </div>

@@ -29,6 +29,7 @@ import {
   Upload,
   Image as ImageIcon
 } from 'lucide-react'
+import Logo from '@/components/Logo'
 import { claimsDB, ClaimData } from '@/services/claimsDatabase'
 import QuickCarAnalysis from '@/components/QuickCarAnalysis'
 
@@ -156,7 +157,7 @@ export default function AssessClaimPage() {
                 <ArrowLeft className="h-5 w-5 mr-2" />
                 Back to Claims
               </Link>
-              <Shield className="h-8 w-8 text-blue-600" />
+              <Logo width={32} height={32} className="h-8 w-8" />
               <span className="ml-2 text-xl font-bold text-gray-900">Chubb</span>
               <span className="ml-4 px-3 py-1 bg-purple-100 text-purple-800 text-sm font-medium rounded-full">
                 Assessor Portal

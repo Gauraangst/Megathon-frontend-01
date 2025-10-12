@@ -16,6 +16,7 @@ import {
   Search,
   Filter
 } from 'lucide-react'
+import Logo from '@/components/Logo'
 import StatusTimeline from '@/components/StatusTimeline'
 
 // Mock data
@@ -111,7 +112,7 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <Shield className="h-8 w-8 text-blue-600" />
+              <Logo width={32} height={32} className="h-8 w-8" />
               <span className="ml-2 text-xl font-bold text-gray-900">Chubb</span>
             </div>
             <div className="flex items-center space-x-4">

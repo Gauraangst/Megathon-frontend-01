@@ -22,6 +22,7 @@ import {
   AlertCircle,
   MessageSquare
 } from 'lucide-react'
+import Logo from '@/components/Logo'
 import StatusTimeline from '@/components/StatusTimeline'
 
 // Mock detailed claim data
@@ -154,7 +155,7 @@ export default function ClaimDetailsPage() {
                 <ArrowLeft className="h-5 w-5 mr-2" />
                 Back to Claims
               </Link>
-              <Shield className="h-8 w-8 text-blue-600" />
+              <Logo width={32} height={32} className="h-8 w-8" />
               <span className="ml-2 text-xl font-bold text-gray-900">Chubb</span>
               <span className="ml-4 px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
                 Claim Details

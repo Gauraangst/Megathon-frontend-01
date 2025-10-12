@@ -36,6 +36,19 @@ export default function ProtectedRoute({
     )
   }
 
+  // If user is authenticated but profile is still loading, show loading
+  if (user && !userProfile) {
+    console.log('⏳ PROTECTED ROUTE: User authenticated but profile loading')
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading user profile...</p>
+        </div>
+      </div>
+    )
+  }
+
   // Show auth form if not authenticated
   if (!user) {
     console.log('❌ PROTECTED ROUTE: No user, showing auth form')

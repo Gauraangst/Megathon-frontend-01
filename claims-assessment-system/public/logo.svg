@@ -1,0 +1,7 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Blue background circle -->
+  <circle cx="100" cy="100" r="80" fill="#2563eb" stroke="#1d4ed8" stroke-width="3"/>
+  
+  <!-- White 'C' letter -->
+  <text x="100" y="130" font-family="Arial, sans-serif" font-size="120" font-weight="bold" text-anchor="middle" fill="white">C</text>
+</svg>

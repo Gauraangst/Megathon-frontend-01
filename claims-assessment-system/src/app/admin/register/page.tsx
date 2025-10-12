@@ -14,6 +14,7 @@ import {
   AlertCircle,
   CheckCircle 
 } from 'lucide-react'
+import Logo from '@/components/Logo'
 
 export default function AdminRegisterPage() {
   const { signUp } = useAuth()
@@ -126,7 +127,7 @@ export default function AdminRegisterPage() {
           
           <div className="flex justify-center">
             <div className="bg-blue-600 rounded-full p-3">
-              <Shield className="h-8 w-8 text-white" />
+              <Logo width={32} height={32} className="h-8 w-8" />
             </div>
           </div>
           <h2 className="mt-4 text-3xl font-bold text-gray-900">

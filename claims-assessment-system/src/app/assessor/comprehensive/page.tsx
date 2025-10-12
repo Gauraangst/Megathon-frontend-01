@@ -35,6 +35,7 @@ import {
   ChevronRight,
   Upload
 } from 'lucide-react'
+import Logo from '@/components/Logo'
 
 // Mock data matching your requirements
 const mockClaim = {
@@ -154,7 +155,7 @@ export default function ComprehensiveAssessorDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <Shield className="h-8 w-8 text-blue-600" />
+              <Logo width={32} height={32} className="h-8 w-8" />
               <span className="ml-2 text-xl font-bold text-gray-900">Chubb</span>
               <span className="ml-4 px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
                 Comprehensive Assessor Portal

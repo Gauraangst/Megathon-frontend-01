@@ -27,44 +27,77 @@ import {
   BarChart3,
   Activity,
   ArrowRight,
+  Brain,
   Download,
   Users,
   PieChart
 } from 'lucide-react'
+import Logo from '@/components/Logo'
 
-// Mock data for dashboard analytics
-const dashboardStats = {
-  totalClaims: 1247,
-  pendingReview: 89,
-  underAssessment: 156,
-  completed: 1002,
-  flaggedForFraud: 23,
-  totalValue: 12450000,
-  avgProcessingTime: 2.3,
-  fraudDetectionRate: 98.2
+// Helper function to format currency (without rupee sign)
+const formatCurrency = (amount: number | string) => {
+  let num = typeof amount === 'string' ? parseFloat(amount) : amount
+  if (isNaN(num)) return '0'
+  
+  // If the amount is very small (like 120), treat it as thousands
+  if (num > 0 && num < 1000) {
+    num = num * 1000 // Convert 120 to 120,000
+  }
+  
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(1)}M`
+  }
+  if (num >= 1000) {
+    return `${(num / 1000).toFixed(1)}k`
+  }
+  return num.toLocaleString()
 }
 
-const claimsByStatus = [
-  { name: 'Completed', value: 1002, color: '#10B981' },
-  { name: 'Under Assessment', value: 156, color: '#3B82F6' },
-  { name: 'Pending Review', value: 89, color: '#F59E0B' },
-  { name: 'Flagged', value: 23, color: '#EF4444' }
-]
+// Helper function to get risk level from AI analysis
+const getRiskLevel = (claim: any) => {
+  if (claim.ai_analysis_result?.ai_generated_likelihood) {
+    const likelihood = parseFloat(claim.ai_analysis_result.ai_generated_likelihood)
+    if (likelihood > 0.7) return 'High'
+    if (likelihood > 0.4) return 'Medium'
+    return 'Low'
+  }
+  return 'Low'
+}
 
-const monthlyTrends = [
-  { month: 'Jan', claims: 98, fraudDetected: 12, avgAmount: 8500 },
-  { month: 'Feb', claims: 112, fraudDetected: 8, avgAmount: 9200 },
-  { month: 'Mar', claims: 89, fraudDetected: 15, avgAmount: 7800 },
-  { month: 'Apr', claims: 134, fraudDetected: 18, avgAmount: 10100 },
-  { month: 'May', claims: 156, fraudDetected: 22, avgAmount: 11300 },
-  { month: 'Jun', claims: 143, fraudDetected: 19, avgAmount: 9800 }
-]
-
-const recentHighPriorityClaims = [
-  { id: 'CLM-1245', type: 'Vehicle Theft', amount: 45000, riskScore: 23, assignee: 'Jane Smith' },
-  { id: 'CLM-1246', type: 'Property Fire', amount: 89000, riskScore: 15, assignee: 'Mike Johnson' },
-  { id: 'CLM-1247', type: 'Personal Injury', amount: 125000, riskScore: 67, assignee: 'Sarah Davis' }
-]
+// Helper function to get estimated amount (real AI data)
+const getEstimatedAmount = (claim: any) => {
+  let cost = 0
+  
+  // First try the direct estimated damage cost (parsed from AI analysis)
+  if (claim.estimated_damage_cost) {
+    cost = parseFloat(claim.estimated_damage_cost)
+  }
+  else if (claim.estimated_DAMAGE_cost) {
+    cost = parseFloat(claim.estimated_DAMAGE_cost)
+  }
+  // Try to extract from AI analysis result (real backend API data)
+  else if (claim.ai_analysis_result?.estimated_cost) {
+    const costStr = claim.ai_analysis_result.estimated_cost.toString()
+    const match = costStr.match(/[\d,]+/)
+    if (match) {
+      cost = parseInt(match[0].replace(/,/g, ''))
+    }
+  }
+  // Try other possible cost field names from AI analysis
+  else if (claim.ai_analysis_result?.repair_cost) {
+    cost = parseFloat(claim.ai_analysis_result.repair_cost)
+  }
+  else if (claim.ai_analysis_result?.damage_cost) {
+    cost = parseFloat(claim.ai_analysis_result.damage_cost)
+  }
+  
+  // If cost is still very small (like 30), treat it as thousands
+  if (cost > 0 && cost < 1000) {
+    cost = cost * 1000 // Convert 30 to 30,000
+  }
+  
+  return cost
+}
 
 function AssessorOverviewPage() {
   const { user, userProfile, signOut } = useAuth()
@@ -95,20 +128,32 @@ function AssessorOverviewPage() {
         console.log('✅ ASSESSOR: Loaded claims:', claimsData?.length || 0)
         setClaims(claimsData || [])
 
-        // Calculate stats from all claims (admin sees everything)
+        // Calculate stats from real claims data
         const totalClaims = claimsData?.length || 0
         const pendingReview = claimsData?.filter(c => c.status === 'submitted').length || 0
         const aiReview = claimsData?.filter(c => c.status === 'ai_review').length || 0
+        const assessorReview = claimsData?.filter(c => c.status === 'assessor_review').length || 0
         const completed = claimsData?.filter(c => c.status === 'completed').length || 0
-        const totalValue = claimsData?.reduce((sum, c) => sum + (c.estimated_damage_cost || 0), 0) || 0
+        const rejected = claimsData?.filter(c => c.status === 'rejected').length || 0
+        
+        // Calculate total value from estimated costs
+        const totalValue = claimsData?.reduce((sum, claim) => {
+          return sum + getEstimatedAmount(claim)
+        }, 0) || 0
+
+        // Calculate fraud detection rate
+        const fraudDetected = claimsData?.filter(c => {
+          const riskLevel = getRiskLevel(c)
+          return riskLevel === 'High'
+        }).length || 0
 
         setStats({
           totalClaims,
           pendingReview,
-          aiReview,
+          aiReview: aiReview + assessorReview,
           completed,
           totalValue,
-          avgProcessingTime: 2.5 // Mock average
+          avgProcessingTime: 2.5 // Mock average for now
         })
 
       } catch (err) {
@@ -136,14 +181,14 @@ Assessor Portal Overview
 DASHBOARD STATISTICS
 ============================================
 
-Total Claims: ${dashboardStats.totalClaims.toLocaleString()}
-Pending Review: ${dashboardStats.pendingReview}
-Under Assessment: ${dashboardStats.underAssessment}
-Completed: ${dashboardStats.completed.toLocaleString()}
-Flagged for Fraud: ${dashboardStats.flaggedForFraud}
-Total Claims Value: $${(dashboardStats.totalValue / 1000000).toFixed(1)}M
-Average Processing Time: ${dashboardStats.avgProcessingTime} days
-Fraud Detection Rate: ${dashboardStats.fraudDetectionRate}%
+Total Claims: ${stats.totalClaims.toLocaleString()}
+Pending Review: ${stats.pendingReview}
+Under Assessment: ${stats.underAssessment}
+Completed: ${stats.completed.toLocaleString()}
+Flagged for Fraud: ${stats.flaggedForFraud}
+Total Claims Value: $${(stats.totalValue / 1000000).toFixed(1)}M
+Average Processing Time: ${stats.avgProcessingTime} days
+Fraud Detection Rate: ${stats.fraudDetectionRate}%
 
 ============================================
 MONTHLY TRENDS ANALYSIS
@@ -166,8 +211,8 @@ PERFORMANCE METRICS
 ============================================
 
 Processing Efficiency: High
-AI Accuracy Rate: ${dashboardStats.fraudDetectionRate}%
-Claims Resolution Rate: ${((dashboardStats.completed / dashboardStats.totalClaims) * 100).toFixed(1)}%
+AI Accuracy Rate: ${stats.fraudDetectionRate}%
+Claims Resolution Rate: ${((stats.completed / stats.totalClaims) * 100).toFixed(1)}%
 Fraud Detection Accuracy: 94.2%
 
 ============================================
@@ -226,7 +271,7 @@ END OF REPORT
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Link href="/" className="flex items-center text-gray-600 hover:text-gray-900 mr-4">
-                <Shield className="h-8 w-8 text-blue-600" />
+                <Logo width={32} height={32} className="h-8 w-8" />
                 <span className="ml-2 text-xl font-bold text-gray-900">Chubb</span>
               </Link>
               <span className="ml-4 px-3 py-1 bg-purple-100 text-purple-800 text-sm font-medium rounded-full">
@@ -246,11 +291,20 @@ END OF REPORT
               >
                 Claims Assessment
               </Link>
-              <div className="flex items-center space-x-2">
-                <div className="h-8 w-8 bg-purple-600 rounded-full flex items-center justify-center">
-                  <Users className="h-5 w-5 text-white" />
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <div className="h-8 w-8 bg-purple-600 rounded-full flex items-center justify-center">
+                    <Users className="h-5 w-5 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">{userProfile?.full_name || 'Assessor'}</span>
                 </div>
-                <span className="text-sm font-medium text-gray-700">Jane Assessor</span>
+                <button
+                  onClick={signOut}
+                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Sign Out
+                </button>
               </div>
             </div>
           </div>
@@ -313,12 +367,12 @@ END OF REPORT
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <AlertTriangle className="h-8 w-8 text-red-600" />
+                <Brain className="h-8 w-8 text-blue-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Fraud Detected</p>
+                <p className="text-sm font-medium text-gray-500">AI Review</p>
                 <p className="text-2xl font-semibold text-gray-900">{loading ? '...' : stats.aiReview}</p>
-                <p className="text-sm text-red-600">High priority</p>
+                <p className="text-sm text-blue-600">Under assessment</p>
               </div>
             </div>
           </div>
@@ -326,12 +380,12 @@ END OF REPORT
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <TrendingUp className="h-8 w-8 text-green-600" />
+                <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Detection Rate</p>
-                <p className="text-2xl font-semibold text-gray-900">{loading ? '...' : stats.completed}%</p>
-                <p className="text-sm text-green-600">↑ 2.1% accuracy</p>
+                <p className="text-sm font-medium text-gray-500">Completed</p>
+                <p className="text-2xl font-semibold text-gray-900">{loading ? '...' : stats.completed}</p>
+                <p className="text-sm text-green-600">Successfully processed</p>
               </div>
             </div>
           </div>
@@ -345,25 +399,46 @@ END OF REPORT
               <PieChart className="h-5 w-5 text-gray-400" />
             </div>
             
-            {/* Simple visual representation of pie chart */}
+            {/* Simple visual representation of pie chart using real data */}
             <div className="space-y-3">
-              {claimsByStatus.map((item, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div 
-                      className="w-4 h-4 rounded-full mr-3"
-                      style={{ backgroundColor: item.color }}
-                    ></div>
-                    <span className="text-sm text-gray-700">{item.name}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-semibold text-gray-900">{item.value}</span>
-                    <span className="text-xs text-gray-500 ml-1">
-                      ({((item.value / dashboardStats.totalClaims) * 100).toFixed(1)}%)
-                    </span>
-                  </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 rounded-full mr-3 bg-yellow-500"></div>
+                  <span className="text-sm text-gray-700">Pending Review</span>
                 </div>
-              ))}
+                <div className="text-right">
+                  <span className="text-sm font-semibold text-gray-900">{loading ? '...' : stats.pendingReview}</span>
+                  <span className="text-xs text-gray-500 ml-1">
+                    ({loading ? '...' : stats.totalClaims > 0 ? ((stats.pendingReview / stats.totalClaims) * 100).toFixed(1) : 0}%)
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 rounded-full mr-3 bg-blue-500"></div>
+                  <span className="text-sm text-gray-700">AI Review</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-semibold text-gray-900">{loading ? '...' : stats.aiReview}</span>
+                  <span className="text-xs text-gray-500 ml-1">
+                    ({loading ? '...' : stats.totalClaims > 0 ? ((stats.aiReview / stats.totalClaims) * 100).toFixed(1) : 0}%)
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 rounded-full mr-3 bg-green-500"></div>
+                  <span className="text-sm text-gray-700">Completed</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-semibold text-gray-900">{loading ? '...' : stats.completed}</span>
+                  <span className="text-xs text-gray-500 ml-1">
+                    ({loading ? '...' : stats.totalClaims > 0 ? ((stats.completed / stats.totalClaims) * 100).toFixed(1) : 0}%)
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -374,35 +449,51 @@ END OF REPORT
               <BarChart3 className="h-5 w-5 text-gray-400" />
             </div>
             
-            {/* Simple bar chart representation */}
+            {/* Real data visualization */}
             <div className="space-y-4">
-              <div className="flex justify-between text-xs text-black mb-2">
-                <span>Claims Volume</span>
-                <span>Fraud Detected</span>
+              <div className="flex justify-between text-xs text-gray-600 mb-2">
+                <span>Current Status</span>
+                <span>Claims Count</span>
               </div>
-              {monthlyTrends.map((month, index) => (
-                <div key={index} className="flex items-center space-x-4">
-                  <div className="w-8 text-xs text-black">{month.month}</div>
-                  <div className="flex-1 flex items-center space-x-2">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full" 
-                        style={{ width: `${(month.claims / 200) * 100}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-xs text-black w-8">{month.claims}</span>
+              
+              <div className="flex items-center space-x-4">
+                <div className="w-16 text-xs text-gray-700">Pending</div>
+                <div className="flex-1 flex items-center space-x-2">
+                  <div className="flex-1 bg-gray-200 rounded-full h-3">
+                    <div 
+                      className="bg-yellow-500 h-3 rounded-full" 
+                      style={{ width: `${loading ? 0 : stats.totalClaims > 0 ? (stats.pendingReview / stats.totalClaims) * 100 : 0}%` }}
+                    ></div>
                   </div>
-                  <div className="flex-1 flex items-center space-x-2">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-red-600 h-2 rounded-full" 
-                        style={{ width: `${(month.fraudDetected / 30) * 100}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-xs text-black w-8">{month.fraudDetected}</span>
-                  </div>
+                  <span className="text-xs text-gray-700 w-8">{loading ? '...' : stats.pendingReview}</span>
                 </div>
-              ))}
+              </div>
+              
+              <div className="flex items-center space-x-4">
+                <div className="w-16 text-xs text-gray-700">AI Review</div>
+                <div className="flex-1 flex items-center space-x-2">
+                  <div className="flex-1 bg-gray-200 rounded-full h-3">
+                    <div 
+                      className="bg-blue-500 h-3 rounded-full" 
+                      style={{ width: `${loading ? 0 : stats.totalClaims > 0 ? (stats.aiReview / stats.totalClaims) * 100 : 0}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-xs text-gray-700 w-8">{loading ? '...' : stats.aiReview}</span>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-4">
+                <div className="w-16 text-xs text-gray-700">Completed</div>
+                <div className="flex-1 flex items-center space-x-2">
+                  <div className="flex-1 bg-gray-200 rounded-full h-3">
+                    <div 
+                      className="bg-green-500 h-3 rounded-full" 
+                      style={{ width: `${loading ? 0 : stats.totalClaims > 0 ? (stats.completed / stats.totalClaims) * 100 : 0}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-xs text-gray-700 w-8">{loading ? '...' : stats.completed}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -414,15 +505,15 @@ END OF REPORT
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Average Processing Time</span>
-                <span className="text-lg font-semibold text-gray-900">{dashboardStats.avgProcessingTime} days</span>
+                <span className="text-lg font-semibold text-gray-900">{loading ? '...' : stats.avgProcessingTime} days</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Total Claims Value</span>
-                <span className="text-lg font-semibold text-gray-900">${(dashboardStats.totalValue / 1000000).toFixed(1)}M</span>
+                <span className="text-lg font-semibold text-gray-900">{loading ? '...' : formatCurrency(stats.totalValue)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">AI Accuracy Rate</span>
-                <span className="text-lg font-semibold text-green-600">{dashboardStats.fraudDetectionRate}%</span>
+                <span className="text-sm text-gray-600">AI Processing Rate</span>
+                <span className="text-lg font-semibold text-green-600">{loading ? '...' : stats.totalClaims > 0 ? ((stats.aiReview / stats.totalClaims) * 100).toFixed(1) : 0}%</span>
               </div>
             </div>
           </div>
@@ -442,7 +533,7 @@ END OF REPORT
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{claim.claim_number}</p>
-                    <p className="text-xs text-gray-500">{claim.claim_type} • ₹{(claim.estimated_damage_cost || 0).toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">{claim.claim_type} • {formatCurrency(getEstimatedAmount(claim))}</p>
                   </div>
                   <div className="text-right">
                     <div className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
@@ -472,7 +563,7 @@ END OF REPORT
               <FileText className="h-8 w-8 text-blue-600 mr-3 group-hover:scale-110 transition-transform" />
               <div>
                 <p className="font-medium text-gray-900">Review Claims</p>
-                <p className="text-sm text-black">{dashboardStats.pendingReview} pending review</p>
+                <p className="text-sm text-gray-600">{loading ? '...' : stats.pendingReview} pending review</p>
               </div>
             </Link>
             
@@ -483,7 +574,7 @@ END OF REPORT
               <AlertTriangle className="h-8 w-8 text-red-600 mr-3 group-hover:scale-110 transition-transform" />
               <div>
                 <p className="font-medium text-gray-900">Fraud Alerts</p>
-                <p className="text-sm text-black">{dashboardStats.flaggedForFraud} flagged claims</p>
+                <p className="text-sm text-black">{stats.flaggedForFraud} flagged claims</p>
               </div>
             </button>
             

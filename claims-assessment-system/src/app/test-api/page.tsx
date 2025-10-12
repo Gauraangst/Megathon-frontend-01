@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Shield, ArrowLeft, Zap, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
+import Logo from '@/components/Logo'
 import AIDebugPanel from '@/components/AIDebugPanel'
 import ServerStatusIndicator from '@/components/ServerStatusIndicator'
 import { apiService } from '@/lib/apiService'
@@ -33,7 +34,7 @@ export default function TestAPIPage() {
                 <ArrowLeft className="h-5 w-5 mr-2" />
                 Back to Home
               </Link>
-              <Shield className="h-8 w-8 text-blue-600" />
+              <Logo width={32} height={32} className="h-8 w-8" />
               <span className="ml-2 text-xl font-bold text-gray-900">Chubb</span>
               <span className="ml-4 px-3 py-1 bg-purple-100 text-purple-800 text-sm font-medium rounded-full">
                 API Testing

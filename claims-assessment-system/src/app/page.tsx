@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react"
 import { Shield, Brain, Eye, TrendingUp, CheckCircle, Users, Ship, Building, Music, Flame, Trophy, Zap, Star, Globe, Diamond, Skull } from "lucide-react"
 import ClaimantImageAnalysis from '@/components/ClaimantImageAnalysis'
 import FloatingDebugButton from '@/components/FloatingDebugButton'
+import Logo from '@/components/Logo'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function Home() {
@@ -70,7 +71,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <Shield className="h-8 w-8 text-blue-600" />
+              <Logo width={32} height={32} className="h-8 w-8" />
               <span className="ml-2 text-xl font-bold text-gray-900">Chubb</span>
             </div>
             <div className="flex items-center space-x-4">
