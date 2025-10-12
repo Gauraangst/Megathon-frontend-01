@@ -85,7 +85,7 @@ class ApiService {
       const response = await fetch(`${this.baseUrl}/check_ai`, {
         method: 'POST',
         body: formData,
-        signal: AbortSignal.timeout(30000) // 30 second timeout for AI detection
+        signal: AbortSignal.timeout(300000) // 5 minute timeout for AI detection
       })
 
       console.log('Response status:', response.status, response.statusText)
@@ -208,7 +208,7 @@ class ApiService {
       const response = await fetch(`${this.baseUrl}/explain`, {
         method: 'POST',
         body: formData,
-        signal: AbortSignal.timeout(30000)
+        signal: AbortSignal.timeout(300000) // 5 minute timeout for image explanation
       })
 
       if (!response.ok) {
@@ -234,7 +234,7 @@ class ApiService {
     try {
       const response = await fetch(`${this.baseUrl}/check_damage`, {
         method: 'GET',
-        signal: AbortSignal.timeout(15000) // 15 second timeout
+        signal: AbortSignal.timeout(300000) // 5 minute timeout for damage estimation
       })
 
       if (!response.ok) {

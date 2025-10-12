@@ -95,6 +95,17 @@ function ClaimAssessmentPage() {
           console.error('❌ Error loading images:', imagesError)
         } else {
           console.log('📸 ASSESSOR: Loaded images:', imagesData?.length || 0)
+          if (imagesData && imagesData.length > 0) {
+            console.log('📸 ASSESSOR: First image details:')
+            console.log('  - Filename:', imagesData[0].image_filename)
+            console.log('  - Type:', imagesData[0].image_type)
+            console.log('  - URL length:', imagesData[0].image_url?.length)
+            console.log('  - URL starts with data:', imagesData[0].image_url?.startsWith('data:'))
+            console.log('  - URL starts with http:', imagesData[0].image_url?.startsWith('http'))
+            console.log('  - Storage path:', imagesData[0].storage_path)
+            console.log('  - Full URL:', imagesData[0].image_url)
+            console.log('  - URL preview:', imagesData[0].image_url?.substring(0, 100))
+          }
           setClaimImages(imagesData || [])
         }
 
@@ -112,22 +123,57 @@ function ClaimAssessmentPage() {
 
   const handleSaveAssessment = async () => {
     try {
+      // Validate required data
+      if (!user?.id) {
+        console.error('❌ No user ID available')
+        alert('Error: User not authenticated')
+        return
+      }
+      
+      if (!claimId) {
+        console.error('❌ No claim ID available')
+        alert('Error: Invalid claim ID')
+        return
+      }
+      
       const updates = {
-        assessor_notes: assessorNotes,
-        assessor_decision: finalDecision,
-        final_approved_amount: parseFloat(approvedAmount) || undefined,
-        assigned_assessor_id: user?.id,
+        assessor_notes: assessorNotes || undefined,
+        assessor_decision: finalDecision || undefined,
+        final_approved_amount: approvedAmount ? parseFloat(approvedAmount) : undefined,
+        assigned_assessor_id: user.id,
         status: (finalDecision === 'approved' ? 'completed' : 
                 finalDecision === 'rejected' ? 'rejected' : 'assessor_review') as 'submitted' | 'ai_review' | 'assessor_review' | 'completed' | 'rejected'
       }
+      
+      // Remove undefined values
+      Object.keys(updates).forEach(key => {
+        if (updates[key as keyof typeof updates] === undefined) {
+          delete updates[key as keyof typeof updates]
+        }
+      })
 
-      const { error } = await dbHelpers.updateClaim(claimId, updates)
+      console.log('📤 Updating claim with data:', updates)
+      console.log('🔑 Claim ID:', claimId)
+      
+      const { data: updatedClaim, error } = await dbHelpers.updateClaim(claimId, updates)
       
       if (error) {
         console.error('❌ Error updating claim:', error)
-        alert('Error saving assessment')
+        console.error('❌ Error details:', JSON.stringify(error, null, 2))
+        console.error('❌ Error message:', error?.message)
+        console.error('❌ Error code:', error?.code)
+        console.error('❌ Error hint:', error?.hint)
+        alert(`Error saving assessment: ${error?.message || 'Unknown error'}`)
         return
       }
+      
+      if (!updatedClaim) {
+        console.error('❌ No data returned from update')
+        alert('Error: No data returned from update')
+        return
+      }
+      
+      console.log('✅ Claim updated successfully:', updatedClaim)
 
       // Add status history entry
       if (updates.status !== claim?.status) {
@@ -369,18 +415,164 @@ function ClaimAssessmentPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <h4 className="text-sm font-medium text-blue-900 mb-2">Damage Assessment</h4>
-                      <p className="text-sm text-blue-800">
-                        {claim.ai_analysis_result.damage_description || 'Analysis completed successfully'}
-                      </p>
+                  <div className="space-y-4">
+                    {/* AI Confidence Scores */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* AI Generated Likelihood */}
+                      {claim.ai_analysis_result.ai_generated_likelihood !== undefined && (
+                        <div className={`p-4 rounded-lg border-2 ${
+                          claim.ai_analysis_result.ai_generated_likelihood > 0.5 
+                            ? 'bg-red-50 border-red-200' 
+                            : 'bg-green-50 border-green-200'
+                        }`}>
+                          <h4 className={`text-sm font-medium mb-2 ${
+                            claim.ai_analysis_result.ai_generated_likelihood > 0.5 
+                              ? 'text-red-900' 
+                              : 'text-green-900'
+                          }`}>
+                            AI Generation Risk
+                          </h4>
+                          <div className="flex items-center">
+                            <span className={`text-2xl font-bold ${
+                              claim.ai_analysis_result.ai_generated_likelihood > 0.5 
+                                ? 'text-red-600' 
+                                : 'text-green-600'
+                            }`}>
+                              {(claim.ai_analysis_result.ai_generated_likelihood * 100).toFixed(1)}%
+                            </span>
+                            {claim.ai_analysis_result.ai_generated_likelihood > 0.5 && (
+                              <AlertTriangle className="h-5 w-5 text-red-500 ml-2" />
+                            )}
+                          </div>
+                          <p className={`text-xs mt-1 ${
+                            claim.ai_analysis_result.ai_generated_likelihood > 0.5 
+                              ? 'text-red-700' 
+                              : 'text-green-700'
+                          }`}>
+                            {claim.ai_analysis_result.ai_generated_likelihood > 0.5 
+                              ? 'High risk - Manual review required' 
+                              : 'Low risk - Likely authentic'}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Confidence Score */}
+                      {claim.ai_analysis_result.confidence_score !== undefined && (
+                        <div className={`p-4 rounded-lg border-2 ${
+                          claim.ai_analysis_result.confidence_score > 0.5 
+                            ? 'bg-green-50 border-green-200' 
+                            : 'bg-yellow-50 border-yellow-200'
+                        }`}>
+                          <h4 className={`text-sm font-medium mb-2 ${
+                            claim.ai_analysis_result.confidence_score > 0.5 
+                              ? 'text-green-900' 
+                              : 'text-yellow-900'
+                          }`}>
+                            Analysis Confidence
+                          </h4>
+                          <div className="flex items-center">
+                            <span className={`text-2xl font-bold ${
+                              claim.ai_analysis_result.confidence_score > 0.5 
+                                ? 'text-green-600' 
+                                : 'text-yellow-600'
+                            }`}>
+                              {(claim.ai_analysis_result.confidence_score * 100).toFixed(1)}%
+                            </span>
+                            {claim.ai_analysis_result.confidence_score > 0.5 && (
+                              <CheckCircle className="h-5 w-5 text-green-500 ml-2" />
+                            )}
+                          </div>
+                          <p className={`text-xs mt-1 ${
+                            claim.ai_analysis_result.confidence_score > 0.5 
+                              ? 'text-green-700' 
+                              : 'text-yellow-700'
+                          }`}>
+                            {claim.ai_analysis_result.confidence_score > 0.5 
+                              ? 'High confidence analysis' 
+                              : 'Moderate confidence - Review recommended'}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Damage Severity */}
+                      {claim.ai_analysis_result.damage_severity !== undefined && (
+                        <div className={`p-4 rounded-lg border-2 ${
+                          claim.ai_analysis_result.damage_severity > 0.5 
+                            ? 'bg-orange-50 border-orange-200' 
+                            : 'bg-blue-50 border-blue-200'
+                        }`}>
+                          <h4 className={`text-sm font-medium mb-2 ${
+                            claim.ai_analysis_result.damage_severity > 0.5 
+                              ? 'text-orange-900' 
+                              : 'text-blue-900'
+                          }`}>
+                            Damage Severity
+                          </h4>
+                          <div className="flex items-center">
+                            <span className={`text-2xl font-bold ${
+                              claim.ai_analysis_result.damage_severity > 0.5 
+                                ? 'text-orange-600' 
+                                : 'text-blue-600'
+                            }`}>
+                              {(claim.ai_analysis_result.damage_severity * 100).toFixed(1)}%
+                            </span>
+                            {claim.ai_analysis_result.damage_severity > 0.5 && (
+                              <AlertTriangle className="h-5 w-5 text-orange-500 ml-2" />
+                            )}
+                          </div>
+                          <p className={`text-xs mt-1 ${
+                            claim.ai_analysis_result.damage_severity > 0.5 
+                              ? 'text-orange-700' 
+                              : 'text-blue-700'
+                          }`}>
+                            {claim.ai_analysis_result.damage_severity > 0.5 
+                              ? 'Severe damage detected' 
+                              : 'Minor to moderate damage'}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                    <div className="bg-green-50 p-4 rounded-lg">
-                      <h4 className="text-sm font-medium text-green-900 mb-2">Estimated Cost</h4>
-                      <p className="text-lg font-semibold text-green-800">
-                        {formatCurrency(claim.ai_analysis_result.estimated_cost || claim.estimated_damage_cost || 0)}
-                      </p>
+
+                    {/* Damage Assessment and Cost */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <h4 className="text-sm font-medium text-blue-900 mb-2">Damage Assessment</h4>
+                        <div className="text-sm text-blue-800">
+                          {(() => {
+                            let description = claim.ai_analysis_result.damage_description || 'Analysis completed successfully';
+                            
+                            // Check if description is a JSON string and parse it
+                            if (typeof description === 'string' && description.startsWith('{')) {
+                              try {
+                                const parsed = JSON.parse(description);
+                                description = parsed.description || parsed.content || parsed.analysis || description;
+                              } catch (e) {
+                                console.log('Failed to parse damage description JSON:', e);
+                              }
+                            }
+                            
+                            // Clean up formatting
+                            description = description
+                              .replace(/\\n/g, ' ') // Replace literal \n with spaces
+                              .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+                              .trim(); // Remove leading/trailing whitespace
+                            
+                            return (
+                              <div className="max-h-24 overflow-y-auto bg-white rounded-md p-2 border border-blue-200">
+                                <p className="whitespace-pre-wrap leading-relaxed">
+                                  {description}
+                                </p>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <h4 className="text-sm font-medium text-green-900 mb-2">Estimated Cost</h4>
+                        <p className="text-lg font-semibold text-green-800">
+                          {formatCurrency(claim.ai_analysis_result.estimated_cost || claim.estimated_damage_cost || 0)}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -403,20 +595,75 @@ function ClaimAssessmentPage() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Visual Evidence</h2>
               {claimImages.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {claimImages.map((image, index) => (
-                    <div key={index} className="relative group cursor-pointer">
-                      <img
-                        src={image.image_url}
-                        alt={`Evidence ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg border border-gray-200"
-                        onClick={() => setSelectedImage(image.image_url)}
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-lg transition-all duration-200 flex items-center justify-center">
-                        <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                  {claimImages.map((image, index) => {
+                    // Handle different image URL formats
+                    let imageUrl = image.image_url
+                    
+                    console.log(`🖼️ Processing image ${index + 1}:`)
+                    console.log('  - Original URL:', imageUrl)
+                    console.log('  - Storage path:', image.storage_path)
+                    
+                    // Check if it's a Supabase storage URL (starts with http)
+                    if (imageUrl.startsWith('http')) {
+                      // It's already a proper URL from storage
+                      console.log('  - Type: Storage URL')
+                      imageUrl = imageUrl
+                    } else if (imageUrl.startsWith('data:')) {
+                      // It's already a base64 data URL
+                      console.log('  - Type: Base64 with data prefix')
+                      imageUrl = imageUrl
+                    } else {
+                      // Legacy base64 without data prefix
+                      console.log('  - Type: Legacy base64, adding data prefix')
+                      imageUrl = `data:image/jpeg;base64,${imageUrl}`
+                    }
+                    
+                    console.log('  - Final URL:', imageUrl.substring(0, 100) + '...')
+                    
+                    return (
+                      <div key={index} className="relative group cursor-pointer">
+                        <img
+                          src={imageUrl}
+                          alt={`Evidence ${index + 1}`}
+                          className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                          onClick={() => setSelectedImage(imageUrl)}
+                          style={{ backgroundColor: '#f3f4f6' }} // Light gray background to see if image loads
+                          onLoad={() => {
+                            console.log('✅ Image loaded successfully:', image.image_filename)
+                          }}
+                          onError={(e) => {
+                            console.error('❌ Image failed to load:', image.image_filename)
+                            console.error('❌ Image URL type:', imageUrl.startsWith('http') ? 'Storage URL' : 'Base64')
+                            console.error('❌ Full URL:', imageUrl)
+                            
+                            // Test if URL is accessible
+                            if (imageUrl.startsWith('http')) {
+                              fetch(imageUrl)
+                                .then(response => {
+                                  console.log('🔍 URL fetch status:', response.status)
+                                  console.log('🔍 URL fetch headers:', response.headers.get('content-type'))
+                                  return response.blob()
+                                })
+                                .then(blob => {
+                                  console.log('🔍 Blob size:', blob.size, 'bytes')
+                                  console.log('🔍 Blob type:', blob.type)
+                                })
+                                .catch(err => {
+                                  console.error('❌ URL fetch failed:', err)
+                                })
+                            }
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-lg transition-all duration-200 flex items-center justify-center">
+                          <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1 truncate">{image.image_filename}</p>
+                        {image.storage_path && (
+                          <p className="text-xs text-green-600 mt-1">📁 Stored in bucket</p>
+                        )}
                       </div>
-                      <p className="text-xs text-gray-500 mt-1 truncate">{image.image_filename}</p>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">
@@ -470,7 +717,7 @@ function ClaimAssessmentPage() {
                     onChange={(e) => setAssessorNotes(e.target.value)}
                     disabled={!isEditing}
                     rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                     placeholder="Add your assessment notes here..."
                   />
                 </div>
@@ -484,7 +731,7 @@ function ClaimAssessmentPage() {
                       value={finalDecision}
                       onChange={(e) => setFinalDecision(e.target.value)}
                       disabled={!isEditing}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                     >
                       <option value="">Select decision...</option>
                       <option value="approved">Approved</option>
@@ -527,7 +774,7 @@ function ClaimAssessmentPage() {
                     value={approvedAmount}
                     onChange={(e) => setApprovedAmount(e.target.value)}
                     disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                     placeholder="Enter approved amount"
                   />
                 </div>

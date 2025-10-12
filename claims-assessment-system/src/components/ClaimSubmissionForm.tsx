@@ -29,6 +29,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
   const [uploadedImages, setUploadedImages] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null)
+  const [debugMode, setDebugMode] = useState(false)
 
   // Form data state
   const [formData, setFormData] = useState({
@@ -60,6 +61,42 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  // Debug function to fill all fields with sample data
+  const fillDebugData = () => {
+    console.log('🔧 DEBUG: Filling form with sample data')
+    setFormData({
+      // User Details
+      fullName: 'John Doe',
+      drivingLicense: 'DL-14-2019-0123456',
+      policyNumber: 'CHB-VEH-2024-001234',
+      email: 'john.doe@example.com',
+      
+      // Vehicle Details
+      makeModel: 'Honda City',
+      color: 'White',
+      licensePlate: 'MH-12-AB-1234',
+      
+      // Incident Details
+      incidentDate: '2024-01-15',
+      incidentTime: '14:30',
+      location: 'Mumbai-Pune Highway, Near Lonavala',
+      situation: 'Rear-end collision',
+      otherPartyInvolved: true,
+      otherPartyDetails: 'Blue Maruti Swift, MH-14-CD-5678, Driver: Rajesh Kumar',
+      injuries: 'Minor neck strain, no serious injuries',
+      policeReport: 'FIR-2024-001234',
+      witnessDetails: 'Priya Sharma: +91-9876543210, Amit Patel: +91-9876543211',
+      description: 'I was driving on the Mumbai-Pune highway when the vehicle behind me failed to brake in time due to sudden traffic congestion. The impact was moderate, causing damage to my rear bumper and the other vehicle\'s front end. Both drivers were cooperative and exchanged insurance details. Traffic police arrived within 20 minutes and filed a report. No serious injuries occurred, though I experienced minor neck discomfort.'
+    })
+    
+    // Move to step 4 (AI Analysis) so user can upload image
+    setCurrentStep(4)
+    setDebugMode(true)
+    
+    console.log('🔧 DEBUG: Form filled, moved to step 4 for image upload')
+    alert('Debug data filled! Now upload an image for AI analysis, then proceed to submit.')
+  }
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     setUploadedImages(prev => [...prev, ...files])
@@ -82,15 +119,28 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
   }
 
   const handleSubmit = async () => {
+    console.log('🔥🔥🔥 HANDLE SUBMIT FUNCTION CALLED! 🔥🔥🔥')
+    console.log('🚀 CLAIM SUBMISSION: Starting submission process')
+    console.log('👤 User ID:', user?.id)
+    console.log('📧 User Email:', user?.email)
+    console.log('🤖 AI Analysis Result:', aiAnalysisResult)
+    console.log('📝 Form Data:', formData)
+    
     setIsSubmitting(true)
     
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.error('⏰ TIMEOUT: Claim submission took too long')
+      setIsSubmitting(false)
+      alert('Claim submission timed out. Please try again.')
+    }, 30000) // 30 second timeout
+    
     try {
-      console.log('🚀 CLAIM SUBMISSION: Starting submission process')
-      console.log('👤 User ID:', user?.id)
-      console.log('📧 User Email:', user?.email)
-
       if (!user?.id) {
-        throw new Error('User not authenticated')
+        console.error('❌ User not authenticated')
+        alert('Please log in to submit a claim')
+        setIsSubmitting(false)
+        return
       }
 
       // Prepare claim data for Supabase
@@ -130,39 +180,71 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
       console.log('📊 Claim data to submit:', claimData)
 
       // Submit to Supabase
+      console.log('📤 Submitting claim to database...')
+      console.log('🔗 Database connection check...')
+      
+      const startTime = Date.now()
       const { data: submittedClaim, error } = await dbHelpers.createClaim(claimData)
+      const endTime = Date.now()
+      
+      console.log(`⏱️ Database operation took: ${endTime - startTime}ms`)
+      console.log('📊 Database response:', { submittedClaim, error })
       
       if (error) {
         console.error('❌ Claim submission error:', error)
-        throw new Error(error.message || 'Failed to submit claim')
+        alert(`Failed to submit claim: ${error.message}`)
+        setIsSubmitting(false)
+        return
+      }
+
+      if (!submittedClaim) {
+        console.error('❌ No claim data returned from database')
+        alert('Failed to submit claim: No data returned')
+        setIsSubmitting(false)
+        return
       }
 
       console.log('✅ Claim submitted successfully:', submittedClaim)
 
       // Handle image uploads if any
       if (uploadedImages.length > 0 && submittedClaim) {
-        console.log('📸 Processing image uploads...')
+        console.log(`📸 Processing ${uploadedImages.length} image uploads...`)
         
-        for (const image of uploadedImages) {
+        for (let i = 0; i < uploadedImages.length; i++) {
+          const image = uploadedImages[i]
           try {
+            console.log(`📸 Processing image ${i + 1}/${uploadedImages.length}: ${image.name}`)
+            
             // Convert image to base64 for storage
+            const imageStartTime = Date.now()
             const base64Image = await convertImageToBase64(image)
+            const imageEndTime = Date.now()
+            
+            console.log(`📸 Image conversion took: ${imageEndTime - imageStartTime}ms`)
             
             const imageData = {
               claim_id: submittedClaim.id,
               image_filename: image.name,
               image_type: 'damage',
-              image_url: base64Image, // Store as base64
-              ai_analysis: aiAnalysisResult || null
+              image_url: base64Image, // Will be converted to storage URL by addClaimImage
+              ai_analysis: aiAnalysisResult || null,
+              uploaded_at: new Date().toISOString()
             }
             
+            const dbStartTime = Date.now()
             await dbHelpers.addClaimImage(imageData)
+            const dbEndTime = Date.now()
             
-            console.log('📸 Image saved to database:', image.name)
+            console.log(`📸 Image DB save took: ${dbEndTime - dbStartTime}ms`)
+            console.log(`✅ Image ${i + 1} saved successfully: ${image.name}`)
           } catch (imageError) {
-            console.error('❌ Image upload error:', imageError)
+            console.error(`❌ Image ${i + 1} upload error:`, imageError)
+            // Continue with other images even if one fails
           }
         }
+        console.log('📸 All image processing completed')
+      } else {
+        console.log('📸 No images to process')
       }
 
       // Create legacy format for compatibility
@@ -203,8 +285,18 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
         }
       }
 
-      onClaimSubmitted(legacyClaim)
+      console.log('🎉 Calling onClaimSubmitted callback...')
+      console.log('📋 Legacy claim data:', legacyClaim)
       
+      try {
+        onClaimSubmitted(legacyClaim)
+        console.log('✅ Callback executed successfully')
+      } catch (callbackError) {
+        console.error('❌ Callback error:', callbackError)
+        // Continue even if callback fails
+      }
+      
+      console.log('🔄 Resetting form state...')
       // Reset form
       setFormData({
         fullName: userProfile?.full_name || '', drivingLicense: userProfile?.driving_license || '', policyNumber: '', email: userProfile?.email || user?.email || '',
@@ -214,12 +306,19 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
         policeReport: '', witnessDetails: '', description: ''
       })
       setUploadedImages([])
+      setAiAnalysisResult(null)
       setCurrentStep(1)
       
+      console.log('✅ Form reset completed')
+      console.log('✅ Claim submission process completed successfully!')
+      alert('Claim submitted successfully! You will receive a confirmation email shortly.')
+      
     } catch (error) {
-      console.error('Error submitting claim:', error)
-      alert('Error submitting claim. Please try again.')
+      console.error('💥 Error submitting claim:', error)
+      alert(`Error submitting claim: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`)
     } finally {
+      console.log('🏁 Setting isSubmitting to false')
+      clearTimeout(timeoutId) // Clear the timeout
       setIsSubmitting(false)
     }
   }
@@ -233,20 +332,39 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
   }
 
   const isStepValid = () => {
+    let isValid = false
     switch (currentStep) {
       case 1:
-        return formData.fullName && formData.drivingLicense && formData.policyNumber && formData.email
+        isValid = !!(formData.fullName && formData.drivingLicense && formData.policyNumber && formData.email)
+        break
       case 2:
-        return formData.makeModel && formData.color && formData.licensePlate
+        isValid = !!(formData.makeModel && formData.color && formData.licensePlate)
+        break
       case 3:
-        return formData.incidentDate && formData.incidentTime && formData.location && formData.situation
+        isValid = !!(formData.incidentDate && formData.incidentTime && formData.location && formData.situation)
+        break
       case 4:
-        return aiAnalysisResult !== null // AI analysis must be completed
+        isValid = aiAnalysisResult !== null // AI analysis must be completed
+        break
       case 5:
-        return formData.description.trim().length > 10
+        isValid = formData.description.trim().length > 10
+        break
+      case 6:
+        isValid = true // Review step is always valid if we reached it
+        break
       default:
-        return true
+        isValid = true
     }
+    
+    console.log(`🔍 Step ${currentStep} validation:`, isValid)
+    if (currentStep === 4) {
+      console.log('🤖 AI Analysis Result for step 4:', aiAnalysisResult)
+    }
+    if (currentStep === 5) {
+      console.log('📝 Description length for step 5:', formData.description.trim().length)
+    }
+    
+    return isValid
   }
 
   return (
@@ -255,7 +373,17 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
       <div className="bg-gray-50 px-6 py-4">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-xl font-bold text-gray-900">Submit New Claim</h2>
-          <span className="text-sm text-gray-600">Step {currentStep} of 6</span>
+          <div className="flex items-center space-x-4">
+            {/* Debug Button */}
+            <button
+              onClick={fillDebugData}
+              className="px-3 py-1 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700 transition-colors"
+              type="button"
+            >
+              🔧 Debug Fill
+            </button>
+            <span className="text-sm text-gray-600">Step {currentStep} of 6</span>
+          </div>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div 
@@ -263,6 +391,15 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
             style={{ width: `${(currentStep / 6) * 100}%` }}
           ></div>
         </div>
+        
+        {/* Debug Mode Indicator */}
+        {debugMode && (
+          <div className="mt-2 bg-purple-100 border border-purple-200 rounded-md p-2">
+            <p className="text-xs text-purple-800">
+              🔧 Debug Mode: Form auto-filled with sample data. Upload an image and proceed to submit.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="p-6">
@@ -281,7 +418,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                   type="text"
                   value={formData.fullName}
                   onChange={(e) => handleInputChange('fullName', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter your full name"
                 />
               </div>
@@ -292,7 +429,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                   type="text"
                   value={formData.drivingLicense}
                   onChange={(e) => handleInputChange('drivingLicense', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="DL-XX-XXXXXXXXXX"
                 />
               </div>
@@ -303,7 +440,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                   type="text"
                   value={formData.policyNumber}
                   onChange={(e) => handleInputChange('policyNumber', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="CHB-VEH-XXXX-XXXXXX"
                 />
               </div>
@@ -314,7 +451,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="your.email@example.com"
                 />
               </div>
@@ -337,7 +474,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                   type="text"
                   value={formData.makeModel}
                   onChange={(e) => handleInputChange('makeModel', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="e.g., Maruti Suzuki Swift"
                 />
               </div>
@@ -348,7 +485,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                   type="text"
                   value={formData.color}
                   onChange={(e) => handleInputChange('color', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="e.g., White"
                 />
               </div>
@@ -359,7 +496,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                   type="text"
                   value={formData.licensePlate}
                   onChange={(e) => handleInputChange('licensePlate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="XX-XX-XX-XXXX"
                 />
               </div>
@@ -382,7 +519,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                   type="date"
                   value={formData.incidentDate}
                   onChange={(e) => handleInputChange('incidentDate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               
@@ -392,7 +529,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                   type="time"
                   value={formData.incidentTime}
                   onChange={(e) => handleInputChange('incidentTime', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               
@@ -402,7 +539,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                   type="text"
                   value={formData.location}
                   onChange={(e) => handleInputChange('location', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Street address, city, state"
                 />
               </div>
@@ -412,7 +549,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                 <select
                   value={formData.situation}
                   onChange={(e) => handleInputChange('situation', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select incident type</option>
                   <option value="Rear-end collision">Rear-end collision</option>
@@ -445,7 +582,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                     type="text"
                     value={formData.otherPartyDetails}
                     onChange={(e) => handleInputChange('otherPartyDetails', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Vehicle details, license plate, driver info"
                   />
                 </div>
@@ -462,14 +599,30 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
               <h3 className="text-lg font-semibold text-gray-900">AI Damage Analysis</h3>
             </div>
             
+            {/* Debug Mode Helper */}
+            {debugMode && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
+                  <h4 className="text-sm font-medium text-yellow-800">Debug Mode Active</h4>
+                </div>
+                <p className="text-sm text-yellow-700 mt-2">
+                  All form fields have been auto-filled with sample data. 
+                  <strong> Now upload a vehicle damage image below</strong> to complete the AI analysis, 
+                  then you can proceed to submit the claim to test the database integration.
+                </p>
+              </div>
+            )}
+            
             <ClaimantImageAnalysis 
-              onAnalysisComplete={(result) => {
+              onAnalysisComplete={(result, originalFile) => {
+                console.log('🤖 AI Analysis completed:', result)
+                console.log('📸 Original file received:', originalFile?.name, originalFile?.size, 'bytes')
                 setAiAnalysisResult(result)
-                // Simulate adding the analyzed image to uploaded images
-                if (!uploadedImages.length) {
-                  // Create a mock file object for the analyzed image
-                  const mockFile = new File([''], result.filename, { type: 'image/jpeg' })
-                  setUploadedImages([mockFile])
+                // Use the actual uploaded file, not a mock
+                if (originalFile && !uploadedImages.some(img => img.name === originalFile.name)) {
+                  console.log('📸 Adding original file to uploaded images')
+                  setUploadedImages(prev => [...prev, originalFile])
                 }
               }}
             />
@@ -493,7 +646,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   rows={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Please provide a detailed description of the incident..."
                 />
                 <button
@@ -517,7 +670,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                   type="text"
                   value={formData.injuries}
                   onChange={(e) => handleInputChange('injuries', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Describe any injuries"
                 />
               </div>
@@ -528,7 +681,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                   type="text"
                   value={formData.policeReport}
                   onChange={(e) => handleInputChange('policeReport', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="FIR number (if filed)"
                 />
               </div>
@@ -540,7 +693,7 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
                 type="text"
                 value={formData.witnessDetails}
                 onChange={(e) => handleInputChange('witnessDetails', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Witness names and contact information"
               />
             </div>
@@ -608,11 +761,24 @@ export default function ClaimSubmissionForm({ onClaimSubmitted }: ClaimSubmissio
             </button>
           ) : (
             <button
-              onClick={handleSubmit}
+              onClick={() => {
+                console.log('🔴 SUBMIT BUTTON CLICKED!')
+                console.log('🔴 isSubmitting:', isSubmitting)
+                console.log('🔴 isStepValid():', isStepValid())
+                console.log('🔴 Current step:', currentStep)
+                handleSubmit()
+              }}
               disabled={isSubmitting || !isStepValid()}
               className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'Submitting...' : 'Submit Claim'}
+              {isSubmitting ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Submitting...
+                </div>
+              ) : (
+                'Submit Claim'
+              )}
             </button>
           )}
         </div>

@@ -19,13 +19,36 @@ interface AnalysisResult {
 }
 
 interface ClaimantImageAnalysisProps {
-  onAnalysisComplete?: (result: AnalysisResult) => void
+  onAnalysisComplete?: (result: AnalysisResult, originalFile?: File) => void
 }
 
 export default function ClaimantImageAnalysis({ onAnalysisComplete }: ClaimantImageAnalysisProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Helper function to clean and format description text
+  const cleanDescription = (description: string): string => {
+    let cleanedDesc = description;
+    
+    // Check if description is a JSON string and parse it
+    if (typeof description === 'string' && description.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(description);
+        cleanedDesc = parsed.description || parsed.content || description;
+      } catch (e) {
+        console.log('Failed to parse description JSON:', e);
+      }
+    }
+    
+    // Clean up common formatting issues
+    cleanedDesc = cleanedDesc
+      .replace(/\\n/g, ' ') // Replace literal \n with spaces
+      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+      .trim(); // Remove leading/trailing whitespace
+    
+    return cleanedDesc;
+  }
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -54,13 +77,25 @@ export default function ClaimantImageAnalysis({ onAnalysisComplete }: ClaimantIm
         }
 
         setResult(analysisResult)
-        onAnalysisComplete?.(analysisResult)
+        onAnalysisComplete?.(analysisResult, file)
       } else {
         throw new Error(comprehensiveResult.error || 'Analysis failed')
       }
     } catch (err) {
       console.error('Analysis error:', err)
-      setError(err instanceof Error ? err.message : 'Unknown error occurred')
+      let errorMessage = 'Unknown error occurred'
+      
+      if (err instanceof Error) {
+        if (err.name === 'TimeoutError' || err.message.includes('timeout')) {
+          errorMessage = 'AI analysis is taking longer than expected. This can happen with complex damage patterns. Please try again or contact support if the issue persists.'
+        } else if (err.message.includes('network') || err.message.includes('fetch')) {
+          errorMessage = 'Network connection issue. Please check your internet connection and try again.'
+        } else {
+          errorMessage = err.message
+        }
+      }
+      
+      setError(errorMessage)
     } finally {
       setIsAnalyzing(false)
     }
@@ -69,7 +104,19 @@ export default function ClaimantImageAnalysis({ onAnalysisComplete }: ClaimantIm
   // Extract damaged parts from description
   const extractDamagedParts = (description: string): string[] => {
     const parts: string[] = []
-    const lowerDesc = description.toLowerCase()
+    let processedDesc = description;
+    
+    // Check if description is a JSON string and parse it
+    if (typeof description === 'string' && description.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(description);
+        processedDesc = parsed.description || parsed.content || description;
+      } catch (e) {
+        console.log('Failed to parse description JSON for parts extraction:', e);
+      }
+    }
+    
+    const lowerDesc = processedDesc.toLowerCase()
     
     const partKeywords = [
       'bumper', 'hood', 'door', 'fender', 'mirror', 'headlight', 'taillight',
@@ -158,9 +205,22 @@ export default function ClaimantImageAnalysis({ onAnalysisComplete }: ClaimantIm
         <div className="bg-blue-50 rounded-lg p-6 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <h3 className="text-lg font-medium text-blue-900 mb-2">AI Analysis in Progress</h3>
-          <p className="text-sm text-blue-700">
+          <p className="text-sm text-blue-700 mb-4">
             Analyzing damage patterns and estimating repair costs...
           </p>
+          <div className="bg-blue-100 rounded-lg p-4 text-left">
+            <h4 className="text-sm font-medium text-blue-900 mb-2">Processing Steps:</h4>
+            <ul className="text-xs text-blue-700 space-y-1">
+              <li>• Uploading image to AI service</li>
+              <li>• Analyzing damage patterns</li>
+              <li>• Identifying affected vehicle parts</li>
+              <li>• Calculating repair cost estimates</li>
+              <li>• Generating detailed assessment report</li>
+            </ul>
+            <div className="mt-3 text-xs text-blue-600 font-medium">
+              ⏱️ This process may take 2-5 minutes for complex damage analysis
+            </div>
+          </div>
         </div>
       )}
 
@@ -199,7 +259,7 @@ export default function ClaimantImageAnalysis({ onAnalysisComplete }: ClaimantIm
               <div className="text-center">
                 <div className="flex items-center justify-center mb-3">
                   <IndianRupee className="h-8 w-8 text-green-600 mr-2" />
-                  <h4 className="text-xl font-bold text-gray-900">Estimated Repair Cost</h4>
+                  <h4 className="text-xl font-bold text-gray-900">Estimated Repair Cost (x1000)</h4>
                 </div>
                 <div className="text-4xl font-bold text-green-600 mb-2">
                   {extractCostRange(result.damage_estimate.estimated_damage).typical}
@@ -268,12 +328,14 @@ export default function ClaimantImageAnalysis({ onAnalysisComplete }: ClaimantIm
                 <FileText className="h-4 w-4 mr-2" />
                 Damage Assessment
               </h4>
-              <p className="text-sm text-gray-700 leading-relaxed">
-                {result.image_analysis.description.length > 200 
-                  ? result.image_analysis.description.substring(0, 200) + '...'
-                  : result.image_analysis.description
-                }
-              </p>
+              <div className="max-h-32 overflow-y-auto bg-white rounded-md p-3 border border-gray-200">
+                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {cleanDescription(result.image_analysis.description)}
+                </p>
+              </div>
+              <div className="text-xs text-gray-500 mt-2">
+                Scroll to read full assessment
+              </div>
             </div>
 
             {/* Action Buttons */}

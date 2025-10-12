@@ -459,7 +459,7 @@ export default function AssessClaimPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Estimated Repair Cost
+                        Estimated Repair Cost (x1000)
                       </label>
                       <input
                         type="text"

@@ -118,9 +118,14 @@ export const authHelpers = {
     if (email === 'admin@chubb.com' && password === 'pass@123') {
       console.log('🔑 ADMIN BYPASS: Using hardcoded admin credentials')
       
+      // Clear any existing mock session to ensure fresh UUID
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('mock_admin_session')
+      }
+      
       // Create a proper mock session with JWT-like structure
       const mockUser = {
-        id: 'admin-mock-id',
+        id: '00000000-0000-4000-8000-000000000001', // Valid UUID format for mock admin
         email: 'admin@chubb.com',
         user_metadata: { full_name: 'System Administrator' },
         aud: 'authenticated',
@@ -279,14 +284,65 @@ export const dbHelpers = {
     return { data, error }
   },
 
-  // Add claim image
+  // Upload image to storage bucket and save record
   async addClaimImage(imageData: any) {
-    const { data, error } = await supabase
-      .from('claim_images')
-      .insert(imageData)
-      .select()
-      .single()
-    return { data, error }
+    try {
+      // If imageData.image_url is base64, we need to upload it to storage
+      if (imageData.image_url && imageData.image_url.startsWith('data:')) {
+        console.log('📤 Uploading image to Supabase Storage...')
+        
+        // Convert base64 to blob
+        const base64Data = imageData.image_url.split(',')[1]
+        const byteCharacters = atob(base64Data)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        const blob = new Blob([byteArray], { type: 'image/jpeg' })
+        
+        // Generate unique filename
+        const timestamp = Date.now()
+        const randomId = Math.random().toString(36).substring(2, 15)
+        const fileName = `claim-${imageData.claim_id}-${timestamp}-${randomId}.jpg`
+        
+        // Upload to storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('claim-images')
+          .upload(fileName, blob, {
+            contentType: 'image/jpeg',
+            upsert: false
+          })
+        
+        if (uploadError) {
+          console.error('❌ Storage upload error:', uploadError)
+          throw uploadError
+        }
+        
+        console.log('✅ Image uploaded to storage:', fileName)
+        
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('claim-images')
+          .getPublicUrl(fileName)
+        
+        // Update imageData with storage URL
+        imageData.image_url = urlData.publicUrl
+        imageData.storage_path = fileName
+      }
+      
+      // Save record to database
+      const { data, error } = await supabase
+        .from('claim_images')
+        .insert(imageData)
+        .select()
+        .single()
+        
+      return { data, error }
+    } catch (err) {
+      console.error('❌ Error in addClaimImage:', err)
+      return { data: null, error: err }
+    }
   },
 
   // Get claim images
