@@ -103,7 +103,7 @@ A comprehensive AI-powered insurance claims processing system that combines adva
 - **Row Level Security** (RLS) disabled for development
 - **Auto-generated claim numbers** (CHB-YYYY-XXXXXX format)
 
-## 📦 How to Install (Clone)
+## How to Install (Clone)
 
 ### Prerequisites
 - **Node.js** 18+ and npm
@@ -190,14 +190,14 @@ curl http://localhost:8000/health
 open http://localhost:3000
 ```
 
-### 🌐 Access URLs
+###  Access URLs
 - **Frontend:** http://localhost:3000
 - **Backend API:** http://localhost:8000
 - **API Docs:** http://localhost:8000/docs
 
-## 🎮 How to Use
+##  How to Use
 
-### 🔑 **Demo Accounts**
+###  **Demo Accounts**
 The system comes with pre-configured test accounts:
 
 | Role | Email | Password | Access Level |
@@ -206,7 +206,7 @@ The system comes with pre-configured test accounts:
 | **Admin** | `admin@chubb.com` | `password123` | Admin Portal |
 | **Claimant** | Create new account | Any password | Claimant Portal |
 
-### 🚀 **Getting Started**
+###  **Getting Started**
 
 #### **Step 1: Access the Application**
 1. Open your browser and go to `http://localhost:3000`
@@ -226,7 +226,7 @@ The system comes with pre-configured test accounts:
 
 #### **Step 3: Using the System**
 
-### 🏠 **Claimant Portal Workflow**
+###  **Claimant Portal Workflow**
 1. **Dashboard Overview:**
    - View active and resolved claims
    - Check claim status and progress
@@ -270,7 +270,7 @@ The system comes with pre-configured test accounts:
    - Check cross-claim similarity analysis
    - Validate image authenticity
 
-### 🎯 **Key Features Usage**
+###  **Key Features Usage**
 
 #### **AI-Powered Analysis**
 - **Image Upload:** Drag and drop or click to upload vehicle damage photos
@@ -288,9 +288,9 @@ The system comes with pre-configured test accounts:
 - **Assessors:** Review claims, conduct assessments, make decisions
 - **Admins:** Full system access, user management, analytics
 
-## 🏗️ How Does It Function (Overview of Codebase)
+##  How Does It Function (Overview of Codebase)
 
-### 🏛️ **System Architecture**
+### **System Architecture**
 
 The Chubb Claims Assessment System follows a modern full-stack architecture with clear separation of concerns:
 
@@ -305,7 +305,7 @@ The Chubb Claims Assessment System follows a modern full-stack architecture with
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### 🔧 **Core Components**
+###  **Core Components**
 
 #### **Frontend Architecture (Next.js)**
 ```
@@ -340,7 +340,7 @@ api.py                           # Main FastAPI application
 └── API Endpoints               # RESTful API services
 ```
 
-### 🔄 **Data Flow & Processing**
+###  **Data Flow & Processing**
 
 #### **1. Claim Submission Flow**
 ```
@@ -357,7 +357,7 @@ Image Upload → Base64 Encoding → OpenRouter API → Damage Assessment → Fr
 User Login → Supabase Auth → Role Assignment → Portal Redirect → Protected Route Access
 ```
 
-### 🗄️ **Database Schema**
+###  **Database Schema**
 
 #### **Core Tables**
 - **`users`** - User profiles and role management
@@ -374,7 +374,7 @@ claims (1) ──► (many) claim_status_history
 users (1) ──► (many) assessor_assignments
 ```
 
-### 🤖 **AI Integration**
+###  **AI Integration**
 
 #### **OpenRouter API Integration**
 - **Model:** GPT-4 Vision for image analysis
@@ -388,7 +388,7 @@ users (1) ──► (many) assessor_assignments
 3. **Post-processing:** Result formatting, confidence scoring, flag generation
 4. **Storage:** Database persistence, file management, audit logging
 
-### 🔐 **Security & Authentication**
+###  **Security & Authentication**
 
 #### **Authentication System**
 - **Provider:** Supabase Auth with email/password
@@ -401,7 +401,7 @@ users (1) ──► (many) assessor_assignments
 - **API Security:** CORS configuration, rate limiting, input validation
 - **Database Security:** Row-level security (RLS), encrypted storage
 
-### 📊 **State Management**
+###  **State Management**
 
 #### **Frontend State**
 - **Authentication State:** User session, profile data, role information
@@ -413,7 +413,7 @@ users (1) ──► (many) assessor_assignments
 - **AI Analysis:** Analysis status, result caching, batch processing
 - **Database State:** Transaction management, data consistency
 
-### 🔄 **Real-time Features**
+###  **Real-time Features**
 
 #### **Status Updates**
 - **WebSocket Integration:** Real-time status changes
@@ -425,7 +425,7 @@ users (1) ──► (many) assessor_assignments
 - **Assignment System:** Automatic workload distribution
 - **Audit Trail:** Complete action logging and history
 
-## 🔧 API Endpoints
+##  API Endpoints
 
 ### Core Endpoints
 ```bash
@@ -443,11 +443,11 @@ curl -X POST "http://localhost:8000/explain" \
   -F "file=@damaged_car.jpg"
 ```
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 Megathon/
-├── 📁 claims-assessment-system/     # Next.js Frontend
+├──  claims-assessment-system/     # Next.js Frontend
 │   ├── src/app/                    # App router pages
 │   │   ├── auth/                   # Authentication
 │   │   ├── claimant-portal/        # Claimant interface
@@ -457,18 +457,18 @@ Megathon/
 │   ├── src/contexts/              # State management
 │   ├── src/lib/                    # Utilities & services
 │   └── src/services/              # Business logic
-├── 📁 uploads/                     # Image storage
-├── 📁 heatmap/                     # Generated heatmaps
-├── 📁 imgsss/                      # Processed images
-├── 🔧 api.py                       # Main FastAPI application
-├── 🔧 impact_api.py                # Impact analysis API
-├── 🔧 overlay.py                   # Image overlay processing
-├── 📊 supabase-schema.sql          # Database schema
-├── 📋 requirements.txt             # Python dependencies
-└── 📋 package.json                 # Node.js dependencies
+├──  uploads/                     # Image storage
+├──  heatmap/                     # Generated heatmaps
+├──  imgsss/                      # Processed images
+├──  api.py                       # Main FastAPI application
+├──  impact_api.py                # Impact analysis API
+├──  overlay.py                   # Image overlay processing
+├──  supabase-schema.sql          # Database schema
+├──  requirements.txt             # Python dependencies
+└──  package.json                 # Node.js dependencies
 ```
 
-## 🚀 Deployment
+##  Deployment
 
 ### Production Build
 ```bash
@@ -484,11 +484,11 @@ uvicorn api:app --host 0.0.0.0 --port 8000
 ### Environment Variables
 Ensure all environment variables are properly configured for production deployment.
 
-## 🤝 Contributing
+##  Contributing
 
 This is a Megathon competition project. For contributions or questions, please contact the development team.
 
-## 📄 License
+##  License
 
 This project is developed for the Megathon competition. All rights reserved.
 
