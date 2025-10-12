@@ -506,5 +506,8 @@ UNDER MIT LICENCE (SEE LICENCE.md)
 # Video Demo
 [Video Demo](https://drive.google.com/file/d/1FpJwxdritYPcunAvUI-M1W2QFtmBDnT5/view?usp=sharing)
 
+# Youtube Unlisted video
+[Video Demo](https://youtu.be/KK5UgV54F1c)
+
 
 **🏆 Built for Megathon 2025 - Chubb Claims Assessment System**
