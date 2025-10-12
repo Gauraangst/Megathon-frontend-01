@@ -37,7 +37,7 @@ import Logo from '@/components/Logo'
 // Helper function to format currency (without rupee sign)
 const formatCurrency = (amount: number | string) => {
   let num = typeof amount === 'string' ? parseFloat(amount) : amount
-  if (isNaN(num)) return '0'
+  if (isNaN(num)) return '$0'
   
   // If the amount is very small (like 120), treat it as thousands
   if (num > 0 && num < 1000) {
@@ -45,12 +45,12 @@ const formatCurrency = (amount: number | string) => {
   }
   
   if (num >= 1000000) {
-    return `${(num / 1000000).toFixed(1)}M`
+    return `$${(num / 1000000).toFixed(1)}M`
   }
   if (num >= 1000) {
-    return `${(num / 1000).toFixed(1)}k`
+    return `$${(num / 1000).toFixed(1)}k`
   }
-  return num.toLocaleString()
+  return `$${num.toLocaleString()}`
 }
 
 // Helper function to get risk level from AI analysis

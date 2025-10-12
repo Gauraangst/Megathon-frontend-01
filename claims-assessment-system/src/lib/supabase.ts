@@ -372,5 +372,60 @@ export const dbHelpers = {
       .select('*')
       .eq('role', 'assessor')
     return { data, error }
+  },
+
+  // Upload claim image (for damage overlays)
+  async uploadClaimImage(claimId: string, base64Data: string, fileName: string) {
+    try {
+      // Convert base64 to blob
+      const byteCharacters = atob(base64Data)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'image/png' })
+
+      // Upload to Supabase storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('claim-images')
+        .upload(`${claimId}/${fileName}`, blob, {
+          contentType: 'image/png',
+          upsert: false
+        })
+
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError)
+        return { data: null, error: uploadError }
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('claim-images')
+        .getPublicUrl(`${claimId}/${fileName}`)
+
+      // Save image record to database
+      const { data: dbData, error: dbError } = await supabase
+        .from('claim_images')
+        .insert({
+          claim_id: claimId,
+          image_filename: fileName,
+          image_url: urlData.publicUrl,
+          storage_path: `${claimId}/${fileName}`,
+          uploaded_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (dbError) {
+        console.error('Database insert error:', dbError)
+        return { data: null, error: dbError }
+      }
+
+      return { data: dbData, error: null }
+    } catch (error) {
+      console.error('Upload error:', error)
+      return { data: null, error }
+    }
   }
 }

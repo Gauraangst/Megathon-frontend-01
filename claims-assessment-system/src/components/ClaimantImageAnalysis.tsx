@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Upload, Camera, IndianRupee, Wrench, AlertTriangle, CheckCircle, Car, FileText, Zap } from 'lucide-react'
+import { Upload, Camera, DollarSign, Wrench, AlertTriangle, CheckCircle, Car, FileText, Zap } from 'lucide-react'
 import { apiService } from '../lib/apiService'
 
 interface AnalysisResult {
@@ -139,34 +139,34 @@ export default function ClaimantImageAnalysis({ onAnalysisComplete }: ClaimantIm
     const totalMatch = estimate.match(/\*\*Total[^|]*\*\*[^|]*\|\s*\*\*([^*]+)\*\*/i)
     if (totalMatch) {
       const range = totalMatch[1].trim()
-      const costs = range.match(/₹([\d,]+)/g) || []
+      const costs = range.match(/\$([\d,]+)/g) || []
       if (costs.length >= 2) {
-        const minValue = parseInt(costs[0].replace(/[₹,]/g, ''))
-        const maxValue = parseInt(costs[1].replace(/[₹,]/g, ''))
+        const minValue = parseInt(costs[0].replace(/[\$,]/g, ''))
+        const maxValue = parseInt(costs[1].replace(/[\$,]/g, ''))
         const averageValue = Math.round((minValue + maxValue) / 2)
         return {
           min: costs[0],
           max: costs[1],
-          typical: `₹${averageValue.toLocaleString()}`
+          typical: `$${averageValue.toLocaleString()}`
         }
       }
       return {
-        min: costs[0] || '₹25,000',
-        max: costs[1] || '₹45,000',
-        typical: costs.length > 2 ? costs[1] : '₹35,000'
+        min: costs[0] || '$25,000',
+        max: costs[1] || '$45,000',
+        typical: costs.length > 2 ? costs[1] : '$35,000'
       }
     }
 
     // Fallback to any cost mentioned
-    const costMatch = estimate.match(/₹([\d,]+)/g)
+    const costMatch = estimate.match(/\$([\d,]+)/g)
     if (costMatch && costMatch.length >= 2) {
-      const minValue = parseInt(costMatch[0].replace(/[₹,]/g, ''))
-      const maxValue = parseInt(costMatch[costMatch.length - 1].replace(/[₹,]/g, ''))
+      const minValue = parseInt(costMatch[0].replace(/[\$,]/g, ''))
+      const maxValue = parseInt(costMatch[costMatch.length - 1].replace(/[\$,]/g, ''))
       const averageValue = Math.round((minValue + maxValue) / 2)
       return {
         min: costMatch[0],
         max: costMatch[costMatch.length - 1],
-        typical: `₹${averageValue.toLocaleString()}`
+        typical: `$${averageValue.toLocaleString()}`
       }
     }
 
@@ -180,9 +180,9 @@ export default function ClaimantImageAnalysis({ onAnalysisComplete }: ClaimantIm
     }
 
     return {
-      min: '₹20,000',
-      max: '₹50,000', 
-      typical: '₹35,000'
+      min: '$20,000',
+      max: '$50,000', 
+      typical: '$35,000'
     }
   }
 
@@ -280,8 +280,8 @@ export default function ClaimantImageAnalysis({ onAnalysisComplete }: ClaimantIm
             <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-6 mb-6 border border-green-200">
               <div className="text-center">
                 <div className="flex items-center justify-center mb-3">
-                  <IndianRupee className="h-8 w-8 text-green-600 mr-2" />
-                  <h4 className="text-xl font-bold text-gray-900">Estimated Repair Cost (x1000)</h4>
+                  <DollarSign className="h-8 w-8 text-green-600 mr-2" />
+                  <h4 className="text-xl font-bold text-gray-900">Estimated Repair Cost (USD)</h4>
                 </div>
                 <div className="text-4xl font-bold text-green-600 mb-2">
                   {extractCostRange(result.damage_estimate.estimated_damage).typical}

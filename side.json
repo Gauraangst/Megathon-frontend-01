@@ -1,0 +1,19 @@
+{
+  "car_side_damage_assessment": {
+    "sections_of_interest": [
+      { "component": "front_left_door", "is_damaged": true, "percentage_damage": 12.5, "bbox": [200, 250, 150, 100] },
+      { "component": "front_right_door", "is_damaged": true, "percentage_damage": 5.0, "bbox": [200, 240, 150, 100] },
+      { "component": "front_left_window", "is_damaged": true, "percentage_damage": 5.0, "bbox": [220, 150, 120, 60] },
+      { "component": "front_right_window", "is_damaged": true, "percentage_damage": 2.0, "bbox": [220, 140, 120, 60] },
+      
+      { "component": "rear_left_door", "is_damaged": true, "percentage_damage": 8.0, "bbox": [360, 250, 150, 100] },
+      { "component": "rear_right_door", "is_damaged": true, "percentage_damage": 3.0, "bbox": [360, 240, 150, 100] },
+      { "component": "rear_left_window", "is_damaged": true, "percentage_damage": 1.0, "bbox": [380, 170, 120, 40] },
+      { "component": "rear_right_window", "is_damaged": true, "percentage_damage": 1.0, "bbox": [380, 160, 120, 40] },
+      
+      { "component": "front_wheel", "is_damaged": true, "percentage_damage": 20.0, "bbox": [150, 320, 80, 80] },
+      { "component": "rear_wheel", "is_damaged": true, "percentage_damage": 10.0, "bbox": [450, 320, 80, 80] }
+    ],
+    "overall_damage_severity": "MEDIUM"
+  }
+}

@@ -10,12 +10,12 @@ import { dbHelpers } from '@/lib/supabase'
 // Helper function to format currency with "k" for thousands (without rupee sign)
 const formatCurrency = (amount: number | string) => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount
-  if (isNaN(num)) return '0'
+  if (isNaN(num)) return '$0'
   
   if (num >= 1000) {
-    return `${(num / 1000).toFixed(1)}k`
+    return `$${(num / 1000).toFixed(1)}k`
   }
-  return num.toLocaleString()
+  return `$${num.toLocaleString()}`
 }
 
 function AssessorPortalPage() {
