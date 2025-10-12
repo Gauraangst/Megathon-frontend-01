@@ -491,7 +491,12 @@ This is a Megathon competition project. For contributions or questions, please c
 ##  License
 
 This project is developed for the Megathon competition. All rights reserved.
+UNDER MIT LICENCE (SEE LICENCE.md)
 
 ---
+
+# Video Demo
+[Video Demo](https://drive.google.com/file/d/1FpJwxdritYPcunAvUI-M1W2QFtmBDnT5/view?usp=sharing)
+
 
 **🏆 Built for Megathon 2024 - Chubb Claims Assessment System**
