@@ -484,6 +484,14 @@ uvicorn api:app --host 0.0.0.0 --port 8000
 ### Environment Variables
 Ensure all environment variables are properly configured for production deployment.
 
+## Special AI Mentions :
+- Windsurf
+- Cursor
+- Napkin AI
+- Eraser.io
+- Chatgpt
+- Gemini Nano Banana
+
 ##  Contributing
 
 This is a Megathon competition project. For contributions or questions, please contact the development team.
