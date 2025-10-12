@@ -507,4 +507,4 @@ UNDER MIT LICENCE (SEE LICENCE.md)
 [Video Demo](https://drive.google.com/file/d/1FpJwxdritYPcunAvUI-M1W2QFtmBDnT5/view?usp=sharing)
 
 
-**🏆 Built for Megathon 2024 - Chubb Claims Assessment System**
+**🏆 Built for Megathon 2025 - Chubb Claims Assessment System**
