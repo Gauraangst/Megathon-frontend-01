@@ -23,15 +23,15 @@ app.add_middleware(
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# API_KEY = "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"
-# API_KEY =  "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"
-# API_KEY =  "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"
-# key2="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"
+# API_KEY = "sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# API_KEY =  "sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# API_KEY =  "sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# key2="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 # Global variable to store the description text
 
-#API_KEY="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"
+#API_KEY="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
-API_KEY="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"
+API_KEY="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 key2=API_KEY
 description_text = ""
 
