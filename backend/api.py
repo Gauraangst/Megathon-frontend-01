@@ -20,7 +20,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOAD_DIR = "uploads"
+# Paths relative to backend directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
+UPLOAD_DIR = os.path.join(PROJECT_ROOT, "uploads")
+IMAGES_DIR = os.path.join(PROJECT_ROOT, "imgsss")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # API_KEY = "sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -306,7 +310,7 @@ def render_damage_overlay(
 
     try:
         # --- 2. Load Base Image ---
-        image_path = './imgsss/side.PNG'
+        image_path = os.path.join(IMAGES_DIR, 'side.PNG')
         if not os.path.exists(image_path):
             raise HTTPException(status_code=404, detail="Base car image not found")
 
@@ -407,7 +411,7 @@ def analyze_damage_components(file: UploadFile = File(...)):
             f.write(file.file.read())
 
         # Load the predefined damage components from side.json
-        json_path = './side.json'
+        json_path = os.path.join(BASE_DIR, 'side.json')
         if os.path.exists(json_path):
             with open(json_path, 'r') as f:
                 predefined_data = json.load(f)
@@ -468,7 +472,7 @@ def get_damage_components():
         raise HTTPException(status_code=403, detail="Admin access required")
     
     try:
-        json_path = './side.json'
+        json_path = os.path.join(BASE_DIR, 'side.json')
         if not os.path.exists(json_path):
             raise HTTPException(status_code=404, detail="Damage components file not found")
             
@@ -512,10 +516,10 @@ def render_damage_impact(damage_data: dict):
             raise HTTPException(status_code=400, detail="No damage sections provided")
         
         # Load the base car image (side view)
-        image_path = './imgsss/side.png'
+        image_path = os.path.join(IMAGES_DIR, 'side.png')
         if not os.path.exists(image_path):
             # Fallback to a default image or create one
-            image_path = './imgsss/side_filled.JPG'
+            image_path = os.path.join(IMAGES_DIR, 'side_filled.JPG')
             if not os.path.exists(image_path):
                 raise HTTPException(status_code=404, detail="Base car image not found")
         
@@ -592,7 +596,7 @@ def render_damage_impact(damage_data: dict):
                 )
         
         # Save the result to a temporary file
-        temp_dir = "temp_damage_output"
+        temp_dir = os.path.join(PROJECT_ROOT, "temp_damage_output")
         os.makedirs(temp_dir, exist_ok=True)
         
         output_filename = f"damage_impact_{hash(str(damage_data))}.png"

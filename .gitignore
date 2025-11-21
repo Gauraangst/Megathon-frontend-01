@@ -1,2 +1,64 @@
-venv/
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.next/
+out/
+build/
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+temp_damage_output/
+*.tmp
+*.temp
+
+# Uploads (keep structure, ignore contents)
+uploads/*
+!uploads/.gitkeep
+
+# Generated files
+heatmap/*.png
+!heatmap/.gitkeep
+
+# Test files
+test_*.png
+debug_*.png
+
+# OS files
+Thumbs.db
+.DS_Store
